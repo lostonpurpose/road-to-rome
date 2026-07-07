@@ -1,0 +1,434 @@
+const app = document.getElementById("app");
+
+import {
+    cityChain,
+    facilityCatalog,
+    fighterPower,
+    fighterTotalDefense,
+    fighterTotalMaxHp,
+    fighterTotalStrength,
+    itemBonusSummary,
+    moneyFormat,
+    viewLabels
+} from "./game-data.js";
+
+import {
+    bookedSpectacle,
+    cityIndexToNextLabel,
+    currentCity,
+    fameProgress,
+    listSelectedFighters,
+    nextCity,
+    nextCityProgress,
+    stableCap,
+    state,
+    spectacleResultMarkup,
+    trainingCost
+} from "./game.js";
+
+function gearTags(fighter) {
+    const slots = ["weapon", "armor", "trinket"];
+    const tags = [];
+    slots.forEach((slot) => {
+        const item = fighter.gear?.[slot];
+        if (item) {
+            tags.push(`<span class="badge">${item.name}</span>`);
+        }
+    });
+    if (tags.length === 0) {
+        tags.push('<span class="badge">No gear equipped</span>');
+    }
+    return tags.join("");
+}
+
+function fighterCard(fighter) {
+    const selected = state.selectedFighterIds.has(fighter.id);
+    const weaponGear = state.armoryStock.filter((item) => item.slot === "weapon" && state.gold >= item.cost);
+    const armorGear = state.armoryStock.filter((item) => item.slot === "armor" && state.gold >= item.cost);
+    const trinketGear = state.armoryStock.filter((item) => item.slot === "trinket" && state.gold >= item.cost);
+    
+    const gearSection = weaponGear.length > 0 || armorGear.length > 0 || trinketGear.length > 0 ? `
+        <div class="gear-section">
+            <div class="muted small" style="margin-bottom: 8px;">Equip gear:</div>
+            ${weaponGear.length > 0 ? `
+                <div class="gear-slot">
+                    <span class="label small">Weapon:</span>
+                    ${weaponGear.map((item) => `<button class="secondary tiny" data-action="buy-item" data-id="${item.id}" data-fighter-id="${fighter.id}">${item.name} (${moneyFormat(item.cost)})</button>`).join(" ")}
+                </div>
+            ` : ""}
+            ${armorGear.length > 0 ? `
+                <div class="gear-slot">
+                    <span class="label small">Armor:</span>
+                    ${armorGear.map((item) => `<button class="secondary tiny" data-action="buy-item" data-id="${item.id}" data-fighter-id="${fighter.id}">${item.name} (${moneyFormat(item.cost)})</button>`).join(" ")}
+                </div>
+            ` : ""}
+            ${trinketGear.length > 0 ? `
+                <div class="gear-slot">
+                    <span class="label small">Trinket:</span>
+                    ${trinketGear.map((item) => `<button class="secondary tiny" data-action="buy-item" data-id="${item.id}" data-fighter-id="${fighter.id}">${item.name} (${moneyFormat(item.cost)})</button>`).join(" ")}
+                </div>
+            ` : ""}
+        </div>
+    ` : "";
+    
+    return `
+        <article class="fighter-card ${selected ? "selected" : ""}">
+            <div class="fighter-top">
+                <div>
+                    <h3 class="fighter-name">${fighter.name}</h3>
+                    <div class="muted">${fighter.title} · ${fighter.style} · ${fighter.origin}</div>
+                </div>
+                <span class="badge gold">Lv ${fighter.level}</span>
+            </div>
+            <div class="checkbox-line">
+                <input type="checkbox" data-fighter-id="${fighter.id}" ${selected ? "checked" : ""}>
+                <span>Send to spectacle</span>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-box"><span class="label">HP</span><span class="value">${fighter.hp}/${fighterTotalMaxHp(fighter)}</span></div>
+                <div class="stat-box"><span class="label">STR</span><span class="value">${fighterTotalStrength(fighter)}</span></div>
+                <div class="stat-box"><span class="label">DEF</span><span class="value">${fighterTotalDefense(fighter)}</span></div>
+            </div>
+            <div class="badges">
+                <span class="badge info">XP ${fighter.exp}</span>
+                <span class="badge gold">Fame ${fighter.fame}</span>
+                <span class="badge">Renown ${fighter.renown}</span>
+                <span class="badge">Power ${fighterPower(fighter)}</span>
+            </div>
+            <div class="gear-line">
+                ${gearTags(fighter)}
+            </div>
+            ${gearSection}
+            <div class="fighter-actions">
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="hp">Train HP (${moneyFormat(trainingCost(fighter))})</button>
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="strength">Train STR (${moneyFormat(trainingCost(fighter))})</button>
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="defense">Train DEF (${moneyFormat(trainingCost(fighter))})</button>
+            </div>
+        </article>
+    `;
+}
+
+function recruitCard(recruit) {
+    const affordable = state.gold >= recruit.cost;
+    const full = state.roster.length >= stableCap();
+    return `
+        <article class="market-card">
+            <div class="card-head">
+                <div>
+                    <h4 class="market-title">${recruit.name}</h4>
+                    <div class="muted">${recruit.title} · ${recruit.style} · ${recruit.origin}</div>
+                </div>
+                <span class="badge gold">${moneyFormat(recruit.cost)}</span>
+            </div>
+            <div class="badges">
+                <span class="badge">HP ${recruit.maxHp}</span>
+                <span class="badge">STR ${recruit.strength}</span>
+                <span class="badge">DEF ${recruit.defense}</span>
+                <span class="badge info">Power ${fighterPower(recruit)}</span>
+            </div>
+            <div class="market-actions">
+                <button data-action="hire" data-id="${recruit.id}" ${affordable && !full ? "" : "disabled"}>Hire recruit</button>
+            </div>
+        </article>
+    `;
+}
+
+function itemCard(item) {
+    const affordable = state.gold >= item.cost;
+    const targetOptions = state.roster
+        .filter((fighter) => fighter.alive)
+        .map((fighter) => `<option value="${fighter.id}">${fighter.name}</option>`)
+        .join("");
+    return `
+        <article class="market-card">
+            <div class="card-head">
+                <div>
+                    <h4 class="market-title">${item.name}</h4>
+                    <div class="muted">${item.slot} · quality ${item.quality}</div>
+                </div>
+                <span class="badge gold">${moneyFormat(item.cost)}</span>
+            </div>
+            <div class="badges">
+                ${itemBonusSummary(item)
+                    .split(" · ")
+                    .filter(Boolean)
+                    .map((entry) => `<span class="badge">${entry}</span>`)
+                    .join("")}
+            </div>
+            <label class="market-target">
+                <span class="muted small">Give to</span>
+                <select data-item-target="${item.id}">
+                    ${targetOptions || '<option value="">No fighters available</option>'}
+                </select>
+            </label>
+            <div class="market-actions">
+                <button data-action="buy-item" data-id="${item.id}" ${affordable && targetOptions ? "" : "disabled"}>Buy & equip</button>
+            </div>
+        </article>
+    `;
+}
+
+function facilityCard(key) {
+    const facility = state.facilities[key];
+    const spec = facilityCatalog[key];
+    const cost = spec.baseCost + facility * 26 + state.cityIndex * 14;
+    return `
+        <article class="facility-card">
+            <div class="facility-head">
+                <div>
+                    <h4 class="facility-title">${spec.title}</h4>
+                    <div class="muted">Level ${facility}</div>
+                </div>
+                <span class="badge gold">${moneyFormat(cost)}</span>
+            </div>
+            <p class="small">${spec.description}</p>
+            <div class="facility-actions">
+                <button data-action="upgrade" data-id="${key}" ${state.gold >= cost ? "" : "disabled"}>Upgrade</button>
+            </div>
+        </article>
+    `;
+}
+
+function spectacleCard(spectacle) {
+    const selected = listSelectedFighters();
+    const validSelection = selected.length >= spectacle.minFighters && selected.length <= spectacle.maxFighters;
+    const booked = state.pendingSpectacle?.spectacleId === spectacle.id;
+    const blocked = Boolean(state.pendingSpectacle) && !booked;
+    const projected = `Send ${spectacle.minFighters}-${spectacle.maxFighters} fighters`;
+    
+    const fighterOptions = state.roster
+        .filter((fighter) => fighter.alive)
+        .map((fighter) => `<label class="checkbox-line"><input type="checkbox" class="spectacle-fighter-select" data-spectacle-id="${spectacle.id}" data-fighter-id="${fighter.id}" ${selected.some((f) => f.id === fighter.id) ? "checked" : ""}> ${fighter.name} (Power: ${fighterPower(fighter)}, Renown: ${fighter.renown})</label>`)
+        .join("");
+    
+    return `
+        <article class="spectacle-card">
+            <div class="card-head">
+                <div>
+                    <h4 class="spectacle-title">${spectacle.title}</h4>
+                    <div class="muted">Sponsor: ${spectacle.sponsor} · ${spectacle.venue}</div>
+                </div>
+                <span class="badge ${spectacle.toTheDeath ? "danger" : "info"}">${spectacle.toTheDeath ? "Sine missione" : "Missio possible"}</span>
+            </div>
+            <p class="small">${spectacle.flavor}</p>
+            <div class="badges">
+                <span class="badge gold">${moneyFormat(spectacle.baseGold)} base purse</span>
+                <span class="badge">+${spectacle.baseFame} fame</span>
+                <span class="badge">${projected}</span>
+                <span class="badge">Risk ${Math.round(spectacle.risk * 100)}%</span>
+            </div>
+            <div class="opponents-line">
+                ${spectacle.requestedName ? `<span class="badge gold">${spectacle.requestedName} requested</span>` : ""}
+                ${spectacle.opponents.map((opponent) => `<span class="badge">${opponent.name}, ${opponent.title}</span>`).join("")}
+            </div>
+            <div class="fighter-selection">
+                <div class="muted small" style="margin-bottom: 8px;">Select fighters for this show:</div>
+                ${fighterOptions}
+            </div>
+            <div class="market-actions">
+                <button data-action="spectacle" data-id="${spectacle.id}" ${validSelection && !blocked && !booked ? "" : "disabled"}>${booked ? `Booked for day ${state.pendingSpectacle.resolveDay}` : blocked ? "Another spectacle is already booked" : "Book selected fighters"}</button>
+            </div>
+        </article>
+    `;
+}
+
+function cityCard(city, index) {
+    const isCurrent = index === state.cityIndex;
+    const isLocked = state.fame < city.fameRequired && !isCurrent;
+    return `
+        <article class="city-card ${isCurrent ? "current" : ""} ${isLocked ? "locked" : ""}">
+            <div class="city-head">
+                <div>
+                    <h4 class="city-title">${city.name}</h4>
+                    <div class="muted">${city.region}</div>
+                </div>
+                <span class="badge ${isCurrent ? "gold" : ""}">${isCurrent ? "Current" : `Need ${city.fameRequired} fame`}</span>
+            </div>
+            <p class="small">${city.note}</p>
+        </article>
+    `;
+}
+
+function logMarkup() {
+    return state.log.map((entry) => `<li class="log-item">${entry}</li>`).join("");
+}
+
+function render() {
+    const city = currentCity();
+    const next = cityIndexToNextLabel();
+    const fameTarget = state.cityIndex >= cityChain.length - 1 ? state.fame : next.fameRequired;
+    const fameBarWidth = Math.round(fameProgress() * 100);
+    const cityBarWidth = Math.round(nextCityProgress() * 100);
+    const selected = listSelectedFighters();
+    const navigation = Object.keys(viewLabels)
+        .map((view) => `<button class="${state.activeView === view ? "secondary active" : "secondary"}" data-action="view" data-view="${view}">${viewLabels[view]}</button>`)
+        .join("");
+
+    let screenMarkup = "";
+    if (state.activeView === "hub") {
+        screenMarkup = `
+            <div class="screen-grid two-up">
+                <section class="panel">
+                    <div class="panel-section compact">
+                        <h3>Stable Overview</h3>
+                        <p>Use the tabs to focus on one part of the stable at a time. Book a spectacle, make your changes, then press Next Day to resolve it.</p>
+                        <div class="card-actions">
+                            <button class="secondary" data-action="view" data-view="barracks">Open Barracks</button>
+                            <button class="secondary" data-action="view" data-view="training">Open Training Hall</button>
+                            <button class="secondary" data-action="view" data-view="promoters">Open Promoters</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-section compact">
+                        <h3>Active Status</h3>
+                        ${spectacleResultMarkup()}
+                    </div>
+                    <div class="panel-section compact">
+                        <h3>Notes</h3>
+                        <p>City: ${city.name}.</p>
+                        <p>Next city: ${next.name}.</p>
+                        <p>Stable capacity is driven by the barracks.</p>
+                    </div>
+                </section>
+            </div>
+        `;
+    } else if (state.activeView === "barracks") {
+        screenMarkup = `
+            <div class="screen-grid two-up">
+                <section class="panel">
+                    <div class="panel-section">
+                        <h3>Roster</h3>
+                        <div class="roster-list">
+                            ${state.roster.map(fighterCard).join("")}
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-section">
+                        <h3>Recruit Market</h3>
+                        <div class="card-grid recruits">
+                            ${state.recruitMarket.map(recruitCard).join("")}
+                        </div>
+                    </div>
+                </section>
+            </div>
+        `;
+    } else if (state.activeView === "training") {
+        screenMarkup = `
+            <div class="screen-grid two-up">
+                <section class="panel">
+                    <div class="panel-section">
+                        <h3>Training Hall</h3>
+                        <div class="facility-list">
+                            ${Object.keys(facilityCatalog).map(facilityCard).join("")}
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-section compact">
+                        <h3>Training Notes</h3>
+                        <p>Train a fighter directly, or upgrade the yard and medicus to improve future results.</p>
+                    </div>
+                </section>
+            </div>
+        `;
+    } else if (state.activeView === "armory") {
+        screenMarkup = `
+            <div class="screen-grid two-up">
+                <section class="panel">
+                    <div class="panel-section">
+                        <h3>Armory Stock</h3>
+                        <div class="card-grid items">
+                            ${state.armoryStock.map(itemCard).join("")}
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-section compact">
+                        <h3>Loadout</h3>
+                        <p>Pick a target fighter from each item card to equip new gear. The armory screen is intentionally narrow so it is easier to read at a glance.</p>
+                    </div>
+                </section>
+            </div>
+        `;
+    } else if (state.activeView === "promoters") {
+        screenMarkup = `
+            <div class="screen-grid two-up">
+                <section class="panel">
+                    <div class="panel-section">
+                        <h3>Promoters and Spectacles</h3>
+                        <div class="spectacle-list">
+                            ${state.spectacleBoard.map(spectacleCard).join("")}
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-section">
+                        <h3>Current City</h3>
+                        <p>${city.note}</p>
+                        <div class="card-actions">
+                            <button data-action="travel" ${state.pendingSpectacle ? "disabled" : state.cityIndex < cityChain.length - 1 && state.fame >= next.fameRequired && state.gold >= (18 + next.prestige * 12) ? "" : "disabled"}>Travel to ${next.name}</button>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h3>City Road</h3>
+                        <div class="city-list">
+                            ${cityChain.map(cityCard).join("")}
+                        </div>
+                    </div>
+                </section>
+            </div>
+        `;
+    }
+
+    app.innerHTML = `
+        <div class="shell">
+            <header class="hero-banner">
+                <h1>Munus & Glory</h1>
+                <p class="subtitle">You are the lanista of a growing gladiator stable in a backwater Spanish city. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
+                <div class="hero-actions">
+                    <div class="view-tabs">${navigation}</div>
+                    <div class="turn-actions">
+                        <span class="muted">Day ${state.day}</span>
+                        <button data-action="next-day">Next Day</button>
+                    </div>
+                </div>
+            </header>
+
+            <section class="top-stats">
+                <div class="stat-chip"><span class="label">City</span><span class="value">${city.name}</span></div>
+                <div class="stat-chip"><span class="label">Day</span><span class="value">${state.day}</span></div>
+                <div class="stat-chip"><span class="label">Sesterces</span><span class="value">${moneyFormat(state.gold)}</span></div>
+                <div class="stat-chip"><span class="label">Fame</span><span class="value">${state.fame}</span></div>
+                <div class="stat-chip"><span class="label">Stable</span><span class="value">${state.roster.length}/${stableCap()} fighters</span></div>
+            </section>
+
+            <section class="panel">
+                <h2>Battle Log & Spectacle Status</h2>
+                <ul class="log-list">${logMarkup()}</ul>
+                <div class="muted" style="margin-top: 10px;">Selected fighters for the next spectacle: ${selected.length ? selected.map((fighter) => fighter.name).join(", ") : "none"}</div>
+            </section>
+            
+            <section class="panel">
+                <h2>Progress</h2>
+                <div class="meter">
+                    <div class="meter-head">
+                        <span>Fame to next city</span>
+                        <span>${state.cityIndex >= cityChain.length - 1 ? "Rome reached!" : `${state.fame} / ${fameTarget}`}</span>
+                    </div>
+                    <div class="meter-track"><div class="meter-fill fame" style="width: ${fameBarWidth}%"></div></div>
+                </div>
+            </section>
+            ${screenMarkup}
+        </div>
+    `;
+}
+
+export { render };
