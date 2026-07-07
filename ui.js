@@ -1,6 +1,11 @@
 const app = document.getElementById("app");
 
 import {
+    formatCalendarDate,
+    nextFestival
+} from "./calendar.js";
+
+import {
     cityChain,
     facilityCatalog,
     fighterPower,
@@ -15,6 +20,7 @@ import {
 import {
     bookedSpectacle,
     cityIndexToNextLabel,
+    currentCalendarDate,
     currentCity,
     fameProgress,
     listSelectedFighters,
@@ -41,8 +47,53 @@ function gearTags(fighter) {
     return tags.join("");
 }
 
+function trainingQueueMarkup() {
+    if (state.trainingQueue.length === 0) {
+        return `
+            <div class="status-callout">
+                <strong>No training underway.</strong>
+                <span>Start a drill from a fighter card and let time do the work.</span>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="calendar-list">
+            ${state.trainingQueue.map((task) => {
+                const fighter = state.roster.find((entry) => entry.id === task.fighterId);
+                return `
+                    <article class="calendar-card">
+                        <div class="card-head">
+                            <div>
+                                <h4 class="market-title">${fighter ? fighter.name : "Unknown fighter"}</h4>
+                                <div class="muted">Training ${task.label}</div>
+                            </div>
+                            <span class="badge gold">${formatCalendarDate(task.completeTurn)}</span>
+                        </div>
+                        <p class="small">${task.duration || Math.max(1, task.completeTurn - task.startedTurn)} day drill already in motion.</p>
+                    </article>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
+function calendarSummaryMarkup() {
+    const today = currentCalendarDate();
+    const nextEvent = nextFestival(state.day);
+
+    return `
+        <div class="status-callout pending">
+            <strong>Today: ${formatCalendarDate(today)}</strong>
+            <span>${nextEvent ? `Next sacred date: ${nextEvent.definition.title} in ${nextEvent.daysAway} days.` : "No festival dates found."}</span>
+        </div>
+    `;
+}
+
 function fighterCard(fighter) {
     const selected = state.selectedFighterIds.has(fighter.id);
+    const inTraining = state.trainingQueue.some((task) => task.fighterId === fighter.id);
+    const trainingDays = Math.max(1, 3 - Math.floor(state.facilities.trainingYard / 2));
     const weaponGear = state.armoryStock.filter((item) => item.slot === "weapon" && state.gold >= item.cost);
     const armorGear = state.armoryStock.filter((item) => item.slot === "armor" && state.gold >= item.cost);
     const trinketGear = state.armoryStock.filter((item) => item.slot === "trinket" && state.gold >= item.cost);
@@ -98,11 +149,12 @@ function fighterCard(fighter) {
             <div class="gear-line">
                 ${gearTags(fighter)}
             </div>
+            ${inTraining ? `<div class="status-callout pending"><strong>Training in progress.</strong><span>This fighter will return in ${trainingDays} day${trainingDays === 1 ? "" : "s"} when the current drill completes.</span></div>` : ""}
             ${gearSection}
             <div class="fighter-actions">
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="hp">Train HP (${moneyFormat(trainingCost(fighter))})</button>
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="strength">Train STR (${moneyFormat(trainingCost(fighter))})</button>
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="defense">Train DEF (${moneyFormat(trainingCost(fighter))})</button>
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="hp" ${inTraining ? "disabled" : ""}>Start HP training (${moneyFormat(trainingCost(fighter))}, ${trainingDays} day${trainingDays === 1 ? "" : "s"})</button>
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="strength" ${inTraining ? "disabled" : ""}>Start STR training (${moneyFormat(trainingCost(fighter))}, ${trainingDays} day${trainingDays === 1 ? "" : "s"})</button>
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="defense" ${inTraining ? "disabled" : ""}>Start DEF training (${moneyFormat(trainingCost(fighter))}, ${trainingDays} day${trainingDays === 1 ? "" : "s"})</button>
             </div>
         </article>
     `;
@@ -195,6 +247,7 @@ function spectacleCard(spectacle) {
     const booked = state.pendingSpectacle?.spectacleId === spectacle.id;
     const blocked = Boolean(state.pendingSpectacle) && !booked;
     const projected = `Send ${spectacle.minFighters}-${spectacle.maxFighters} fighters`;
+    const eventDate = formatCalendarDate(spectacle.eventTurn);
     
     const fighterOptions = state.roster
         .filter((fighter) => fighter.alive)
@@ -214,10 +267,13 @@ function spectacleCard(spectacle) {
             <div class="badges">
                 <span class="badge gold">${moneyFormat(spectacle.baseGold)} base purse</span>
                 <span class="badge">+${spectacle.baseFame} fame</span>
+                <span class="badge">${eventDate}</span>
+                <span class="badge">${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away</span>
                 <span class="badge">${projected}</span>
                 <span class="badge">Risk ${Math.round(spectacle.risk * 100)}%</span>
             </div>
             <div class="opponents-line">
+                <span class="badge">${spectacle.reason}</span>
                 ${spectacle.requestedName ? `<span class="badge gold">${spectacle.requestedName} requested</span>` : ""}
                 ${spectacle.opponents.map((opponent) => `<span class="badge">${opponent.name}, ${opponent.title}</span>`).join("")}
             </div>
@@ -226,7 +282,7 @@ function spectacleCard(spectacle) {
                 ${fighterOptions}
             </div>
             <div class="market-actions">
-                <button data-action="spectacle" data-id="${spectacle.id}" ${validSelection && !blocked && !booked ? "" : "disabled"}>${booked ? `Booked for day ${state.pendingSpectacle.resolveDay}` : blocked ? "Another spectacle is already booked" : "Book selected fighters"}</button>
+                <button data-action="spectacle" data-id="${spectacle.id}" ${validSelection && !blocked && !booked ? "" : "disabled"}>${booked ? `Booked for ${eventDate}` : blocked ? "Another spectacle is already booked" : "Book selected fighters"}</button>
             </div>
         </article>
     `;
@@ -404,7 +460,7 @@ function render() {
 
             <section class="top-stats">
                 <div class="stat-chip"><span class="label">City</span><span class="value">${city.name}</span></div>
-                <div class="stat-chip"><span class="label">Day</span><span class="value">${state.day}</span></div>
+                <div class="stat-chip"><span class="label">Date</span><span class="value">${formatCalendarDate(currentCalendarDate())}</span></div>
                 <div class="stat-chip"><span class="label">Sesterces</span><span class="value">${moneyFormat(state.gold)}</span></div>
                 <div class="stat-chip"><span class="label">Fame</span><span class="value">${state.fame}</span></div>
                 <div class="stat-chip"><span class="label">Stable</span><span class="value">${state.roster.length}/${stableCap()} fighters</span></div>
@@ -416,16 +472,27 @@ function render() {
                 <div class="muted" style="margin-top: 10px;">Selected fighters for the next spectacle: ${selected.length ? selected.map((fighter) => fighter.name).join(", ") : "none"}</div>
             </section>
             
-            <section class="panel">
-                <h2>Progress</h2>
-                <div class="meter">
-                    <div class="meter-head">
-                        <span>Fame to next city</span>
-                        <span>${state.cityIndex >= cityChain.length - 1 ? "Rome reached!" : `${state.fame} / ${fameTarget}`}</span>
+            <div class="screen-grid two-up">
+                <section class="panel">
+                    <h2>Calendar</h2>
+                    ${calendarSummaryMarkup()}
+                    <div class="panel-section compact">
+                        <h3>Fame</h3>
+                        <div class="meter">
+                            <div class="meter-head">
+                                <span>Fame to next city</span>
+                                <span>${state.cityIndex >= cityChain.length - 1 ? "Rome reached!" : `${state.fame} / ${fameTarget}`}</span>
+                            </div>
+                            <div class="meter-track"><div class="meter-fill fame" style="width: ${fameBarWidth}%"></div></div>
+                        </div>
                     </div>
-                    <div class="meter-track"><div class="meter-fill fame" style="width: ${fameBarWidth}%"></div></div>
-                </div>
-            </section>
+                </section>
+
+                <section class="panel">
+                    <h2>Training Queue</h2>
+                    ${trainingQueueMarkup()}
+                </section>
+            </div>
             ${screenMarkup}
         </div>
     `;

@@ -1,7 +1,6 @@
 import {
     buildArmoryStock,
     buildRecruitMarket,
-    buildSpectacleBoard,
     buildStartRoster,
     cityChain,
     clamp,
@@ -21,15 +20,24 @@ import {
     viewLabels
 } from "./game-data.js";
 
+import {
+    buildFestivalBoard,
+    calendarFromTurn,
+    formatCalendarDate,
+    nextFestival,
+    turnFromDate
+} from "./calendar.js";
+
 const state = {
     cityIndex: 0,
-    day: 1,
+    day: turnFromDate(1, 1, 9),
     gold: 80,
     fame: 12,
     roster: buildStartRoster(),
     recruitMarket: [],
     armoryStock: [],
     spectacleBoard: [],
+    trainingQueue: [],
     pendingSpectacle: null,
     lastSpectacleResult: null,
     activeView: "hub",
@@ -45,6 +53,10 @@ const state = {
 
 function currentCity() {
     return cityChain[state.cityIndex];
+}
+
+function currentCalendarDate() {
+    return calendarFromTurn(state.day);
 }
 
 function stableCap() {
@@ -80,7 +92,7 @@ function refreshMarkets(refreshSpectacles = false) {
     state.recruitMarket = buildRecruitMarket(state.cityIndex);
     state.armoryStock = buildArmoryStock(state.cityIndex, state.facilities.armory);
     if (refreshSpectacles) {
-        state.spectacleBoard = buildSpectacleBoard(state.cityIndex, state.roster);
+        state.spectacleBoard = buildFestivalBoard(state.day, state.cityIndex, state.roster);
     }
 }
 
@@ -104,12 +116,12 @@ function bookedSpectacle() {
 function spectacleResultMarkup() {
     if (state.pendingSpectacle) {
         const spectacle = bookedSpectacle();
-        const dueDay = state.pendingSpectacle.resolveDay;
+        const dueDay = state.pendingSpectacle.resolveTurn;
 
         if (!spectacle) {
             return `
                 <div class="status-callout pending">
-                    <strong>A spectacle is booked for day ${dueDay}.</strong>
+                    <strong>A spectacle is booked for ${formatCalendarDate(dueDay)}.</strong>
                     <span>The sponsor is waiting for your troupe to show up.</span>
                 </div>
             `;
@@ -117,8 +129,8 @@ function spectacleResultMarkup() {
 
         return `
             <div class="status-callout pending">
-                <strong>${spectacle.title} is booked for day ${dueDay}.</strong>
-                <span>Train, shop, or upgrade before you advance the day.</span>
+                <strong>${spectacle.title} is booked for ${formatCalendarDate(dueDay)}.</strong>
+                <span>Train, shop, or upgrade while you wait for the festival day.</span>
             </div>
         `;
     }
@@ -135,7 +147,7 @@ function spectacleResultMarkup() {
     const result = state.lastSpectacleResult;
     return `
         <div class="status-callout ${result.win ? "win" : "loss"}">
-            <strong>${result.title} resolved on day ${result.day}.</strong>
+            <strong>${result.title} resolved on ${result.dayLabel || formatCalendarDate(result.day)}.</strong>
             <span>${result.summary}</span>
         </div>
     `;
@@ -144,14 +156,14 @@ function spectacleResultMarkup() {
 function advanceDay() {
     state.day += 1;
 
-    if (state.pendingSpectacle && state.pendingSpectacle.resolveDay <= state.day) {
-        resolvePendingSpectacle();
-        refreshMarkets(true);
-    } else {
-        refreshMarkets(false);
-        addLog(`Day ${state.day} begins in ${currentCity().name}.`);
+    const trainingCompleted = processTrainingQueue();
+    const spectacleResolved = state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day ? resolvePendingSpectacle() : false;
+
+    if (!trainingCompleted && !spectacleResolved) {
+        addLog(`The calendar turns to ${formatCalendarDate(currentCalendarDate())} in ${currentCity().name}.`);
     }
 
+    refreshMarkets(true);
 }
 
 function moneyFormat(value) {
@@ -202,6 +214,11 @@ function trainFighter(fighterId, stat) {
         return;
     }
 
+    if (state.trainingQueue.some((task) => task.fighterId === fighterId)) {
+        addLog(`${fighter.name} is already training.`);
+        return;
+    }
+
     const cost = trainingCost(fighter);
     if (state.gold < cost) {
         addLog(`You need ${moneyFormat(cost)} to train ${fighter.name}.`);
@@ -209,17 +226,20 @@ function trainFighter(fighterId, stat) {
     }
 
     state.gold -= cost;
-    if (stat === "hp") {
-        fighter.maxHp += 2 + Math.floor(state.facilities.trainingYard / 2);
-        fighter.hp = fighter.maxHp;
-    } else if (stat === "strength") {
-        fighter.strength += 1 + Math.floor(state.facilities.trainingYard / 3);
-    } else if (stat === "defense") {
-        fighter.defense += 1 + Math.floor(state.facilities.trainingYard / 3);
-    }
+    const duration = Math.max(1, 3 - Math.floor(state.facilities.trainingYard / 2));
+    const label = stat === "hp" ? "HP" : stat === "strength" ? "STR" : "DEF";
 
-    gainExperience(fighter, 4 + state.facilities.trainingYard * 2);
-    addLog(`${fighter.name} completes hard training and grows stronger.`);
+    state.trainingQueue.push({
+        id: nextId("training"),
+        fighterId,
+        stat,
+        label,
+        startedTurn: state.day,
+        completeTurn: state.day + duration,
+        cost
+    });
+
+    addLog(`${fighter.name} starts ${label} training. It will take ${duration} days.`);
     refreshMarkets(false);
 
 }
@@ -324,7 +344,57 @@ function travelToNextCity() {
     state.gold -= travelCost;
     state.cityIndex += 1;
     state.day += 1;
-    state.selectedFighterIds.clear();
+    const trainingCompleted = processTrainingQueue();
+    const spectacleResolved = state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day ? resolvePendingSpectacle() : false;
+
+    if (!trainingCompleted && !spectacleResolved) {
+        const date = currentCalendarDate();
+        addLog(`The calendar turns to ${formatCalendarDate(date)} in ${currentCity().name}.`);
+    }
+
+    refreshMarkets(true);
+}
+
+function processTrainingQueue() {
+    const completedTasks = state.trainingQueue.filter((task) => task.completeTurn <= state.day);
+    if (completedTasks.length === 0) {
+        return false;
+    }
+
+    state.trainingQueue = state.trainingQueue.filter((task) => task.completeTurn > state.day);
+    completedTasks.forEach((task) => {
+        const fighter = state.roster.find((entry) => entry.id === task.fighterId && entry.alive);
+        if (!fighter) {
+            addLog("A training session ends, but the fighter is no longer available.");
+            return;
+        }
+
+        if (task.stat === "hp") {
+            fighter.maxHp += 2 + Math.floor(state.facilities.trainingYard / 2);
+            fighter.hp = fighter.maxHp;
+        } else if (task.stat === "strength") {
+            fighter.strength += 1 + Math.floor(state.facilities.trainingYard / 3);
+        } else if (task.stat === "defense") {
+            fighter.defense += 1 + Math.floor(state.facilities.trainingYard / 3);
+        }
+
+        gainExperience(fighter, 4 + state.facilities.trainingYard * 2);
+        addLog(`${fighter.name} finishes ${task.label} training.`);
+    });
+
+    return true;
+}
+
+function trainFighter(fighterId, stat) {
+    const fighter = state.roster.find((entry) => entry.id === fighterId);
+    if (!fighter) {
+        return;
+    }
+
+    if (state.trainingQueue.some((task) => task.fighterId === fighterId)) {
+        addLog(`${fighter.name} is already training.`);
+        return;
+    }
     refreshMarkets(true);
     addLog(`You relocate the stable to ${currentCity().name}. Bigger city, bigger stakes.`);
 
@@ -333,18 +403,21 @@ function travelToNextCity() {
 function listSelectedFighters() {
     return state.roster.filter((fighter) => fighter.alive && state.selectedFighterIds.has(fighter.id));
 }
+    const duration = Math.max(1, 3 - Math.floor(state.facilities.trainingYard / 2));
+    const label = stat === "hp" ? "HP" : stat === "strength" ? "STR" : "DEF";
 
-function spectaclePower(fighter) {
-    return fighterPower(fighter);
-}
+    state.trainingQueue.push({
+        id: nextId("training"),
+        fighterId,
+        stat,
+        label,
+        startedTurn: state.day,
+        completeTurn: state.day + duration,
+        cost
+    });
 
-function resolveSpectacleOutcome(spectacle, selected) {
-    const ourPower = selected.reduce((sum, fighter) => sum + spectaclePower(fighter), 0);
-    const rivalPower = spectacle.opponents.reduce((sum, fighter) => sum + spectaclePower(fighter), 0);
-    const ourShow = ourPower + randomBetween(0, Math.max(6, Math.floor(ourPower * 0.32))) + currentCity().prestige * 3;
-    const rivalShow = rivalPower + randomBetween(0, Math.max(6, Math.floor(rivalPower * 0.32))) + spectacle.cityPrestige * 2;
-    const win = ourShow >= rivalShow;
-    const margin = Math.abs(ourShow - rivalShow);
+    addLog(`${fighter.name} starts ${label} training. It will take ${duration} days.`);
+    refreshMarkets(false);
     const requestBonus = spectacle.requestedName && selected.some((fighter) => fighter.name === spectacle.requestedName) ? spectacle.requestBonus : 0;
 
     let goldGain = Math.round(spectacle.baseGold + ourPower * 1.2 + rivalPower * 0.9 + requestBonus);
@@ -461,6 +534,7 @@ function resolvePendingSpectacle() {
     state.lastSpectacleResult = {
         title: spectacle.title,
         day: state.day,
+        dayLabel: formatCalendarDate(currentCalendarDate()),
         win: outcome.win,
         summary: outcome.summary,
         messages: outcome.messages,
@@ -474,7 +548,7 @@ function resolvePendingSpectacle() {
 
 function queueSpectacle(spectacleId) {
     if (state.pendingSpectacle) {
-        addLog(`A spectacle is already booked for day ${state.pendingSpectacle.resolveDay}.`);
+        addLog(`A spectacle is already booked for ${formatCalendarDate(state.pendingSpectacle.resolveTurn)}.`);
 
         return;
     }
@@ -493,11 +567,11 @@ function queueSpectacle(spectacleId) {
     state.pendingSpectacle = {
         spectacleId,
         fighterIds: selected.map((fighter) => fighter.id),
-        resolveDay: state.day + 1
+        resolveTurn: spectacle.eventTurn
     };
     state.lastSpectacleResult = null;
     state.selectedFighterIds.clear();
-    addLog(`${spectacle.title} is booked for day ${state.pendingSpectacle.resolveDay}.`);
+    addLog(`${spectacle.title} is booked for ${formatCalendarDate(state.pendingSpectacle.resolveTurn)}.`);
 
 }
 
@@ -517,6 +591,7 @@ function cityIndexToNextLabel() {
 export {
     state,
     currentCity,
+    currentCalendarDate,
     stableCap,
     nextCity,
     nextCityProgress,
