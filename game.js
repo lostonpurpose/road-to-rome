@@ -287,7 +287,6 @@ function buyItem(itemId, fighterId) {
     if (!fighter) {
         addLog(`You purchase ${item.name}, but no fighter was selected to receive it.`);
         refreshMarkets(false);
-
         return;
     }
 
@@ -296,7 +295,6 @@ function buyItem(itemId, fighterId) {
     fighter.hp = Math.min(fighter.hp + (item.bonus.hp || 0), fighterTotalMaxHp(fighter));
     addLog(`${fighter.name} receives ${item.name}.`);
     refreshMarkets(false);
-
 }
 
 function upgradeFacility(key) {
@@ -316,7 +314,6 @@ function upgradeFacility(key) {
     state.facilities[key] += 1;
     addLog(`${catalog.title} upgraded to level ${state.facilities[key]}.`);
     refreshMarkets(false);
-
 }
 
 function travelToNextCity() {
@@ -348,11 +345,11 @@ function travelToNextCity() {
     const spectacleResolved = state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day ? resolvePendingSpectacle() : false;
 
     if (!trainingCompleted && !spectacleResolved) {
-        const date = currentCalendarDate();
-        addLog(`The calendar turns to ${formatCalendarDate(date)} in ${currentCity().name}.`);
+        addLog(`The calendar turns to ${formatCalendarDate(currentCalendarDate())} in ${currentCity().name}.`);
     }
 
     refreshMarkets(true);
+    addLog(`You relocate the stable to ${currentCity().name}. Bigger city, bigger stakes.`);
 }
 
 function processTrainingQueue() {
@@ -385,39 +382,21 @@ function processTrainingQueue() {
     return true;
 }
 
-function trainFighter(fighterId, stat) {
-    const fighter = state.roster.find((entry) => entry.id === fighterId);
-    if (!fighter) {
-        return;
-    }
-
-    if (state.trainingQueue.some((task) => task.fighterId === fighterId)) {
-        addLog(`${fighter.name} is already training.`);
-        return;
-    }
-    refreshMarkets(true);
-    addLog(`You relocate the stable to ${currentCity().name}. Bigger city, bigger stakes.`);
-
-}
-
 function listSelectedFighters() {
     return state.roster.filter((fighter) => fighter.alive && state.selectedFighterIds.has(fighter.id));
 }
-    const duration = Math.max(1, 3 - Math.floor(state.facilities.trainingYard / 2));
-    const label = stat === "hp" ? "HP" : stat === "strength" ? "STR" : "DEF";
 
-    state.trainingQueue.push({
-        id: nextId("training"),
-        fighterId,
-        stat,
-        label,
-        startedTurn: state.day,
-        completeTurn: state.day + duration,
-        cost
-    });
+function spectaclePower(fighter) {
+    return fighterPower(fighter);
+}
 
-    addLog(`${fighter.name} starts ${label} training. It will take ${duration} days.`);
-    refreshMarkets(false);
+function resolveSpectacleOutcome(spectacle, selected) {
+    const ourPower = selected.reduce((sum, fighter) => sum + spectaclePower(fighter), 0);
+    const rivalPower = spectacle.opponents.reduce((sum, fighter) => sum + spectaclePower(fighter), 0);
+    const ourShow = ourPower + randomBetween(0, Math.max(6, Math.floor(ourPower * 0.32))) + currentCity().prestige * 3;
+    const rivalShow = rivalPower + randomBetween(0, Math.max(6, Math.floor(rivalPower * 0.32))) + spectacle.cityPrestige * 2;
+    const win = ourShow >= rivalShow;
+    const margin = Math.abs(ourShow - rivalShow);
     const requestBonus = spectacle.requestedName && selected.some((fighter) => fighter.name === spectacle.requestedName) ? spectacle.requestBonus : 0;
 
     let goldGain = Math.round(spectacle.baseGold + ourPower * 1.2 + rivalPower * 0.9 + requestBonus);
@@ -445,7 +424,7 @@ function listSelectedFighters() {
     selected.forEach((fighter) => {
         gainExperience(fighter, xpGain + state.facilities.trainingYard * 2);
         fighter.fame += Math.max(1, Math.floor(fameGain / Math.max(1, selected.length)));
-        
+
         if (win) {
             const renownGain = 1 + Math.floor(margin / 120);
             fighter.renown += renownGain;
@@ -478,7 +457,6 @@ function listSelectedFighters() {
         messages.push(`You've defeated ${leaderName}.`);
         messages.push(`The sponsor pays ${moneyFormat(goldGain)} and your fame rises.`);
         selected.forEach((fighter) => {
-            const renownEarned = 1 + Math.floor(margin / 120) + (spectacle.toTheDeath ? 2 : 0);
             messages.push(`${fighter.name} gains renown (now at ${fighter.renown}).`);
         });
     } else {
@@ -549,7 +527,6 @@ function resolvePendingSpectacle() {
 function queueSpectacle(spectacleId) {
     if (state.pendingSpectacle) {
         addLog(`A spectacle is already booked for ${formatCalendarDate(state.pendingSpectacle.resolveTurn)}.`);
-
         return;
     }
 
@@ -572,7 +549,6 @@ function queueSpectacle(spectacleId) {
     state.lastSpectacleResult = null;
     state.selectedFighterIds.clear();
     addLog(`${spectacle.title} is booked for ${formatCalendarDate(state.pendingSpectacle.resolveTurn)}.`);
-
 }
 
 function toggleSelection(fighterId, checked) {
@@ -581,7 +557,6 @@ function toggleSelection(fighterId, checked) {
     } else {
         state.selectedFighterIds.delete(fighterId);
     }
-
 }
 
 function cityIndexToNextLabel() {

@@ -1,5 +1,3 @@
-const app = document.getElementById("app");
-
 import {
     formatCalendarDate,
     nextFestival
@@ -32,9 +30,11 @@ import {
     trainingCost
 } from "./game.js";
 
+const app = document.getElementById("app");
 function gearTags(fighter) {
-    const slots = ["weapon", "armor", "trinket"];
     const tags = [];
+    const slots = ["weapon", "armor", "trinket"];
+
     slots.forEach((slot) => {
         const item = fighter.gear?.[slot];
         if (item) {
@@ -444,56 +444,63 @@ function render() {
         `;
     }
 
-    app.innerHTML = `
-        <div class="shell">
-            <header class="hero-banner">
-                <h1>Munus & Glory</h1>
-                <p class="subtitle">You are the lanista of a growing gladiator stable in a backwater Spanish city. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
-                <div class="hero-actions">
-                    <div class="view-tabs">${navigation}</div>
-                    <div class="turn-actions">
-                        <span class="muted">Day ${state.day}</span>
-                        <button data-action="next-day">Next Day</button>
-                    </div>
-                </div>
-            </header>
-
-            <section class="top-stats">
-                <div class="stat-chip"><span class="label">City</span><span class="value">${city.name}</span></div>
-                <div class="stat-chip"><span class="label">Date</span><span class="value">${formatCalendarDate(currentCalendarDate())}</span></div>
-                <div class="stat-chip"><span class="label">Sesterces</span><span class="value">${moneyFormat(state.gold)}</span></div>
-                <div class="stat-chip"><span class="label">Fame</span><span class="value">${state.fame}</span></div>
-                <div class="stat-chip"><span class="label">Stable</span><span class="value">${state.roster.length}/${stableCap()} fighters</span></div>
-            </section>
-
-            <section class="panel">
-                <h2>Battle Log & Spectacle Status</h2>
+    const statusSidebarMarkup = `
+        <aside class="status-sidebar">
+            <section class="panel status-panel">
+                <h2>Battle Log</h2>
                 <ul class="log-list">${logMarkup()}</ul>
                 <div class="muted" style="margin-top: 10px;">Selected fighters for the next spectacle: ${selected.length ? selected.map((fighter) => fighter.name).join(", ") : "none"}</div>
             </section>
-            
-            <div class="screen-grid two-up">
-                <section class="panel">
-                    <h2>Calendar</h2>
-                    ${calendarSummaryMarkup()}
-                    <div class="panel-section compact">
-                        <h3>Fame</h3>
-                        <div class="meter">
-                            <div class="meter-head">
-                                <span>Fame to next city</span>
-                                <span>${state.cityIndex >= cityChain.length - 1 ? "Rome reached!" : `${state.fame} / ${fameTarget}`}</span>
+
+            <section class="panel status-panel">
+                <h2>Calendar</h2>
+                ${calendarSummaryMarkup()}
+            </section>
+
+            <section class="panel status-panel">
+                <h2>Training Queue</h2>
+                ${trainingQueueMarkup()}
+            </section>
+        </aside>
+    `;
+
+    app.innerHTML = `
+        <div class="shell">
+            <header class="hero-banner">
+                <div class="hero-banner-inner">
+                    <div class="hero-copy">
+                        <h1>Munus & Glory</h1>
+                        <p class="subtitle">You are the lanista of a growing gladiator stable in a backwater Spanish city. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
+                        <div class="hero-actions">
+                            <div class="view-tabs">${navigation}</div>
+                            <div class="turn-actions">
+                                <span class="muted">Day ${state.day}</span>
+                                <button data-action="next-day">Next Day</button>
                             </div>
-                            <div class="meter-track"><div class="meter-fill fame" style="width: ${fameBarWidth}%"></div></div>
                         </div>
                     </div>
+                    <section class="top-stats hero-stats">
+                        <div class="stat-chip"><span class="label">City</span><span class="value">${city.name}</span></div>
+                        <div class="stat-chip"><span class="label">Date</span><span class="value">${formatCalendarDate(currentCalendarDate())}</span></div>
+                        <div class="stat-chip"><span class="label">Sesterces</span><span class="value">${moneyFormat(state.gold)}</span></div>
+                        <div class="stat-chip"><span class="label">Stable</span><span class="value">${state.roster.length}/${stableCap()} fighters</span></div>
+                        <div class="stat-chip fame-chip">
+                            <span class="label">Fame</span>
+                            <div class="fame-inline">
+                                <div class="meter-track fame-inline-track"><div class="meter-fill fame" style="width: ${fameBarWidth}%"></div></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </header>
+
+            <div class="main-layout">
+                <section class="panel main-panel">
+                    ${screenMarkup}
                 </section>
 
-                <section class="panel">
-                    <h2>Training Queue</h2>
-                    ${trainingQueueMarkup()}
-                </section>
+                ${statusSidebarMarkup}
             </div>
-            ${screenMarkup}
         </div>
     `;
 }

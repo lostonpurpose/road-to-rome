@@ -34,6 +34,27 @@ body {
 
 .hero-banner {
     padding: 18px 20px;
+    position: relative;
+}
+
+.hero-banner-inner {
+    display: block;
+}
+
+.hero-copy {
+    min-width: 0;
+    padding-right: clamp(0px, 26vw, 360px);
+}
+
+.hero-stats {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: min(170px, 16vw);
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .hero-actions {
@@ -79,26 +100,84 @@ body {
     gap: 12px;
 }
 
+.hero-banner .hero-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    grid-template-columns: none;
+}
+
 .stat-chip {
-    padding: 12px 14px;
-    border-radius: 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 7px 9px;
+    border-radius: 12px;
     background: rgba(255, 243, 216, 0.08);
     border: 1px solid rgba(255, 243, 216, 0.12);
+    white-space: nowrap;
 }
 
 .stat-chip .label {
-    display: block;
-    font-size: 0.75rem;
+    display: inline;
+    font-size: 0.58rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: #dfc38d;
-    margin-bottom: 6px;
+    margin: 0;
 }
 
 .stat-chip .value {
-    font-size: 1.12rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: #fff4dd;
+}
+
+.fame-chip {
+    align-items: center;
+    gap: 8px;
+}
+
+.fame-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.fame-inline .value {
+    flex: 0 0 auto;
+}
+
+.fame-inline-track {
+    flex: 1;
+    min-width: 54px;
+    height: 8px;
+}
+
+@media (max-width: 1080px) {
+    .hero-stats {
+        width: min(160px, 24vw);
+    }
+}
+
+@media (max-width: 720px) {
+    .hero-stats {
+        width: min(140px, 32vw);
+    }
+}
+
+@media (max-width: 560px) {
+    .hero-copy {
+        padding-right: 0;
+    }
+
+    .hero-stats {
+        position: static;
+        width: auto;
+        margin-top: 14px;
+    }
 }
 
 .panel {
@@ -138,6 +217,33 @@ body {
 
 .screen-grid.two-up {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.main-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.main-panel {
+    min-width: 0;
+}
+
+.status-sidebar {
+    display: grid;
+    gap: 18px;
+    align-content: start;
+}
+
+.status-panel {
+    margin: 0;
+}
+
+.status-panel .log-list {
+    max-height: 260px;
+    overflow: auto;
+    padding-right: 4px;
 }
 
 .status-callout {
@@ -474,6 +580,14 @@ button.ghost {
     .top-stats,
     .footer-panels,
     .screen-grid.two-up {
+
+    .main-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .status-panel .log-list {
+        max-height: none;
+    }
         grid-template-columns: 1fr;
     }
 }
