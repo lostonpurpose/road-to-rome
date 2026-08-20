@@ -81,11 +81,14 @@ function trainingQueueMarkup() {
 function calendarSummaryMarkup() {
     const today = currentCalendarDate();
     const nextEvent = nextFestival(state.day);
+    const countdownText = nextEvent
+        ? (nextEvent.daysAway === 0 ? `Today: ${nextEvent.definition.title}.` : `Next spectacle in ${nextEvent.daysAway} days: ${nextEvent.definition.title}.`)
+        : "No festival dates found.";
 
     return `
         <div class="status-callout pending">
             <strong>Today: ${formatCalendarDate(today)}</strong>
-            <span>${nextEvent ? `Next sacred date: ${nextEvent.definition.title} in ${nextEvent.daysAway} days.` : "No festival dates found."}</span>
+            <span>${countdownText}</span>
         </div>
     `;
 }
@@ -249,7 +252,7 @@ function facilityCard(key) {
 
 function spectacleCard(spectacle) {
     const booked = state.pendingSpectacle?.spectacleId === spectacle.id;
-    const ready = booked && state.pendingSpectacle.ready;
+    const ready = booked && state.pendingSpectacle.resolveTurn <= state.day;
     const blocked = Boolean(state.pendingSpectacle) && !booked;
     const eventDate = formatCalendarDate(spectacle.eventTurn);
     const selected = listSelectedFighters();
@@ -336,6 +339,12 @@ function render() {
     const navigation = Object.keys(viewLabels)
         .map((view) => `<button class="${state.activeView === view ? "secondary active" : "secondary"}" data-action="view" data-view="${view}">${viewLabels[view]}</button>`)
         .join("");
+    const spectacleStatusText = nextFestival(state.day)
+        ? (nextFestival(state.day).daysAway === 0 ? `Spectacle today: ${nextFestival(state.day).definition.title}` : `Next spectacle in ${nextFestival(state.day).daysAway} days`)
+        : "No spectacle scheduled.";
+    const spectacleActionMarkup = state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day
+        ? `<button class="secondary spectacle-send-button" data-action="spectacle-send" data-id="${state.pendingSpectacle.spectacleId}">Send gladiators</button>`
+        : "";
 
     let screenMarkup = "";
     if (state.activeView === "hub") {
@@ -491,10 +500,13 @@ function render() {
                         <div class="hero-actions">
                             <div class="view-tabs">${navigation}</div>
                             <div class="turn-actions">
-                                <span class="muted">Day ${state.day}</span>
+                                <div class="turn-note-wrap">
+                                    <span class="muted">Day ${state.day}</span>
+                                    <span class="muted turn-note">${spectacleStatusText}</span>
+                                </div>
                                 <button data-action="next-day">Next Day</button>
+                                ${spectacleActionMarkup}
                             </div>
-                        </div>
                     </div>
                     <section class="top-stats hero-stats">
                         <div class="stat-chip"><span class="label">City</span><span class="value">${city.name}</span></div>

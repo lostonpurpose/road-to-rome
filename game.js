@@ -539,7 +539,7 @@ function resolveSpectacleOutcome(spectacle, selected) {
 
 function resolvePendingSpectacle() {
     const pending = state.pendingSpectacle;
-    if (!pending || !pending.ready) {
+    if (!pending || pending.resolveTurn > state.day) {
         return false;
     }
 
