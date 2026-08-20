@@ -70,7 +70,7 @@ function trainingQueueMarkup() {
                             </div>
                             <span class="badge gold">${formatCalendarDate(task.completeTurn)}</span>
                         </div>
-                        <p class="small">${task.duration || Math.max(1, task.completeTurn - task.startedTurn)} day drill already in motion.</p>
+                        <p class="small">${task.days || Math.max(1, task.completeTurn - task.startedTurn)} day drill already in motion.</p>
                     </article>
                 `;
             }).join("")}
@@ -91,9 +91,11 @@ function calendarSummaryMarkup() {
 }
 
 function fighterCard(fighter) {
-    const selected = state.selectedFighterIds.has(fighter.id);
+    const trainingTask = state.trainingQueue.find((task) => task.fighterId === fighter.id);
     const inTraining = state.trainingQueue.some((task) => task.fighterId === fighter.id);
-    const trainingDays = Math.max(1, 3 - Math.floor(state.facilities.trainingYard / 2));
+    const trainingOptions = [1, 2, 3, 4, 5]
+        .map((days) => `<option value="${days}" ${days === 2 ? "selected" : ""}>${days} day${days === 1 ? "" : "s"}</option>`)
+        .join("");
     const weaponGear = state.armoryStock.filter((item) => item.slot === "weapon" && state.gold >= item.cost);
     const armorGear = state.armoryStock.filter((item) => item.slot === "armor" && state.gold >= item.cost);
     const trinketGear = state.armoryStock.filter((item) => item.slot === "trinket" && state.gold >= item.cost);
@@ -123,17 +125,13 @@ function fighterCard(fighter) {
     ` : "";
     
     return `
-        <article class="fighter-card ${selected ? "selected" : ""}">
+        <article class="fighter-card">
             <div class="fighter-top">
                 <div>
                     <h3 class="fighter-name">${fighter.name}</h3>
                     <div class="muted">${fighter.title} · ${fighter.style} · ${fighter.origin}</div>
                 </div>
                 <span class="badge gold">Lv ${fighter.level}</span>
-            </div>
-            <div class="checkbox-line">
-                <input type="checkbox" data-fighter-id="${fighter.id}" ${selected ? "checked" : ""}>
-                <span>Send to spectacle</span>
             </div>
             <div class="stats-grid">
                 <div class="stat-box"><span class="label">HP</span><span class="value">${fighter.hp}/${fighterTotalMaxHp(fighter)}</span></div>
@@ -149,12 +147,18 @@ function fighterCard(fighter) {
             <div class="gear-line">
                 ${gearTags(fighter)}
             </div>
-            ${inTraining ? `<div class="status-callout pending"><strong>Training in progress.</strong><span>This fighter will return in ${trainingDays} day${trainingDays === 1 ? "" : "s"} when the current drill completes.</span></div>` : ""}
+            ${inTraining ? `<div class="status-callout pending"><strong>Training in progress.</strong><span>This fighter will return in ${trainingTask ? trainingTask.days : 1} day${(trainingTask ? trainingTask.days : 1) === 1 ? "" : "s"} when the current drill completes.</span></div>` : ""}
             ${gearSection}
+            <label class="market-target training-target">
+                <span class="muted small">Train for</span>
+                <select data-training-days="${fighter.id}">
+                    ${trainingOptions}
+                </select>
+            </label>
             <div class="fighter-actions">
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="hp" ${inTraining ? "disabled" : ""}>Start HP training (${moneyFormat(trainingCost(fighter))}, ${trainingDays} day${trainingDays === 1 ? "" : "s"})</button>
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="strength" ${inTraining ? "disabled" : ""}>Start STR training (${moneyFormat(trainingCost(fighter))}, ${trainingDays} day${trainingDays === 1 ? "" : "s"})</button>
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="defense" ${inTraining ? "disabled" : ""}>Start DEF training (${moneyFormat(trainingCost(fighter))}, ${trainingDays} day${trainingDays === 1 ? "" : "s"})</button>
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="hp" ${inTraining ? "disabled" : ""}>Train HP</button>
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="strength" ${inTraining ? "disabled" : ""}>Train STR</button>
+                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="defense" ${inTraining ? "disabled" : ""}>Train DEF</button>
             </div>
         </article>
     `;
@@ -224,6 +228,7 @@ function facilityCard(key) {
     const facility = state.facilities[key];
     const spec = facilityCatalog[key];
     const cost = spec.baseCost + facility * 26 + state.cityIndex * 14;
+    const queued = state.facilityUpgradeQueue?.key === key;
     return `
         <article class="facility-card">
             <div class="facility-head">
@@ -234,25 +239,31 @@ function facilityCard(key) {
                 <span class="badge gold">${moneyFormat(cost)}</span>
             </div>
             <p class="small">${spec.description}</p>
+            ${queued ? `<div class="status-callout pending"><strong>Upgrade queued.</strong><span>It completes on ${formatCalendarDate(state.facilityUpgradeQueue.completeTurn)}.</span></div>` : ""}
             <div class="facility-actions">
-                <button data-action="upgrade" data-id="${key}" ${state.gold >= cost ? "" : "disabled"}>Upgrade</button>
+                <button data-action="upgrade" data-id="${key}" ${state.gold >= cost && !state.facilityUpgradeQueue ? "" : "disabled"}>Queue upgrade (2 weeks)</button>
             </div>
         </article>
     `;
 }
 
 function spectacleCard(spectacle) {
+    const booked = state.pendingSpectacle?.spectacleId === spectacle.id;
+    const ready = booked && state.pendingSpectacle.ready;
+    const blocked = Boolean(state.pendingSpectacle) && !booked;
+    const eventDate = formatCalendarDate(spectacle.eventTurn);
     const selected = listSelectedFighters();
     const validSelection = selected.length >= spectacle.minFighters && selected.length <= spectacle.maxFighters;
-    const booked = state.pendingSpectacle?.spectacleId === spectacle.id;
-    const blocked = Boolean(state.pendingSpectacle) && !booked;
-    const projected = `Send ${spectacle.minFighters}-${spectacle.maxFighters} fighters`;
-    const eventDate = formatCalendarDate(spectacle.eventTurn);
-    
-    const fighterOptions = state.roster
-        .filter((fighter) => fighter.alive)
-        .map((fighter) => `<label class="checkbox-line"><input type="checkbox" class="spectacle-fighter-select" data-spectacle-id="${spectacle.id}" data-fighter-id="${fighter.id}" ${selected.some((f) => f.id === fighter.id) ? "checked" : ""}> ${fighter.name} (Power: ${fighterPower(fighter)}, Renown: ${fighter.renown})</label>`)
-        .join("");
+
+    const fighterOptions = ready
+        ? state.roster
+            .filter((fighter) => fighter.alive)
+            .map((fighter) => `<label class="checkbox-line"><input type="checkbox" class="spectacle-fighter-select" data-spectacle-id="${spectacle.id}" data-fighter-id="${fighter.id}" ${selected.some((f) => f.id === fighter.id) ? "checked" : ""}> ${fighter.name} (Power: ${fighterPower(fighter)}, Renown: ${fighter.renown})</label>`)
+            .join("")
+        : "";
+
+    const actionLabel = booked ? (ready ? "Send gladiators" : `Booked for ${eventDate}`) : "Book spectacle";
+    const actionAction = booked ? (ready ? "spectacle-send" : "spectacle-wait") : "spectacle-book";
     
     return `
         <article class="spectacle-card">
@@ -269,7 +280,6 @@ function spectacleCard(spectacle) {
                 <span class="badge">+${spectacle.baseFame} fame</span>
                 <span class="badge">${eventDate}</span>
                 <span class="badge">${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away</span>
-                <span class="badge">${projected}</span>
                 <span class="badge">Risk ${Math.round(spectacle.risk * 100)}%</span>
             </div>
             <div class="opponents-line">
@@ -277,12 +287,19 @@ function spectacleCard(spectacle) {
                 ${spectacle.requestedName ? `<span class="badge gold">${spectacle.requestedName} requested</span>` : ""}
                 ${spectacle.opponents.map((opponent) => `<span class="badge">${opponent.name}, ${opponent.title}</span>`).join("")}
             </div>
-            <div class="fighter-selection">
-                <div class="muted small" style="margin-bottom: 8px;">Select fighters for this show:</div>
-                ${fighterOptions}
-            </div>
+            ${ready ? `
+                <div class="fighter-selection">
+                    <div class="muted small" style="margin-bottom: 8px;">Select fighters for this show:</div>
+                    ${fighterOptions}
+                </div>
+            ` : `
+                <div class="status-callout pending">
+                    <strong>${booked ? `Booked for ${eventDate}.` : `This show is available on ${eventDate}.`}</strong>
+                    <span>${booked ? "When the day arrives, you can send gladiators from here." : "Book it now, then wait for the day to send fighters."}</span>
+                </div>
+            `}
             <div class="market-actions">
-                <button data-action="spectacle" data-id="${spectacle.id}" ${validSelection && !blocked && !booked ? "" : "disabled"}>${booked ? `Booked for ${eventDate}` : blocked ? "Another spectacle is already booked" : "Book selected fighters"}</button>
+                <button data-action="${actionAction}" data-id="${spectacle.id}" ${!blocked && (!booked || (ready && validSelection)) ? "" : "disabled"}>${actionLabel}</button>
             </div>
         </article>
     `;
@@ -330,7 +347,7 @@ function render() {
                         <p>Use the tabs to focus on one part of the stable at a time. Book a spectacle, make your changes, then press Next Day to resolve it.</p>
                         <div class="card-actions">
                             <button class="secondary" data-action="view" data-view="barracks">Open Barracks</button>
-                            <button class="secondary" data-action="view" data-view="training">Open Training Hall</button>
+                            <button class="secondary" data-action="view" data-view="training">Open Facilities</button>
                             <button class="secondary" data-action="view" data-view="promoters">Open Promoters</button>
                         </div>
                     </div>
@@ -377,7 +394,7 @@ function render() {
             <div class="screen-grid two-up">
                 <section class="panel">
                     <div class="panel-section">
-                        <h3>Training Hall</h3>
+                        <h3>Facilities</h3>
                         <div class="facility-list">
                             ${Object.keys(facilityCatalog).map(facilityCard).join("")}
                         </div>
@@ -386,8 +403,8 @@ function render() {
 
                 <section class="panel">
                     <div class="panel-section compact">
-                        <h3>Training Notes</h3>
-                        <p>Train a fighter directly, or upgrade the yard and medicus to improve future results.</p>
+                        <h3>Upgrade Queue</h3>
+                        ${state.facilityUpgradeQueue ? `<div class="status-callout pending"><strong>${state.facilityUpgradeQueue.title} is being upgraded.</strong><span>It finishes on ${formatCalendarDate(state.facilityUpgradeQueue.completeTurn)}.</span></div>` : `<p>No building upgrade is queued.</p>`}
                     </div>
                 </section>
             </div>

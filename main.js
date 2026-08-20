@@ -4,6 +4,7 @@ import {
     buyItem,
     currentCity,
     hireRecruit,
+    resolvePendingSpectacle,
     queueSpectacle,
     refreshMarkets,
     setActiveView,
@@ -44,11 +45,19 @@ app.addEventListener("click", (event) => {
     } else if (action === "travel") {
         travelToNextCity();
         render();
-    } else if (action === "spectacle") {
+    } else if (action === "spectacle-book") {
         queueSpectacle(id);
         render();
+    } else if (action === "spectacle-send") {
+        resolvePendingSpectacle();
+        render();
+    } else if (action === "spectacle-wait") {
+        render();
     } else if (action === "train") {
-        trainFighter(id, stat);
+        const card = button.closest(".fighter-card");
+        const daysSelect = card ? card.querySelector(`select[data-training-days="${id}"]`) : null;
+        const days = daysSelect ? Number(daysSelect.value) : 1;
+        trainFighter(id, stat, days);
         render();
     } else if (action === "view") {
         setActiveView(button.dataset.view);
@@ -60,13 +69,6 @@ app.addEventListener("click", (event) => {
 });
 
 app.addEventListener("change", (event) => {
-    const checkbox = event.target.closest("input[data-fighter-id]");
-    if (checkbox) {
-        toggleSelection(checkbox.dataset.fighterId, checkbox.checked);
-        render();
-        return;
-    }
-
     const spectacleCheckbox = event.target.closest("input.spectacle-fighter-select");
     if (spectacleCheckbox) {
         toggleSelection(spectacleCheckbox.dataset.fighterId, spectacleCheckbox.checked);

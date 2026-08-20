@@ -120,7 +120,7 @@ const facilityCatalog = {
 const viewLabels = {
     hub: "Hub",
     barracks: "Barracks",
-    training: "Training Hall",
+    training: "Facilities",
     armory: "Armory",
     promoters: "Promoters"
 };

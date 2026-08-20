@@ -38,6 +38,7 @@ const state = {
     armoryStock: [],
     spectacleBoard: [],
     trainingQueue: [],
+    facilityUpgradeQueue: null,
     pendingSpectacle: null,
     lastSpectacleResult: null,
     activeView: "hub",
@@ -117,12 +118,22 @@ function spectacleResultMarkup() {
     if (state.pendingSpectacle) {
         const spectacle = bookedSpectacle();
         const dueDay = state.pendingSpectacle.resolveTurn;
+        const ready = dueDay <= state.day;
 
         if (!spectacle) {
             return `
                 <div class="status-callout pending">
                     <strong>A spectacle is booked for ${formatCalendarDate(dueDay)}.</strong>
-                    <span>The sponsor is waiting for your troupe to show up.</span>
+                    <span>${ready ? "The day has arrived. Send gladiators from Promoters." : "The sponsor is waiting for your troupe to show up."}</span>
+                </div>
+            `;
+        }
+
+        if (ready) {
+            return `
+                <div class="status-callout pending">
+                    <strong>${spectacle.title} is ready for today.</strong>
+                    <span>Choose gladiators in Promoters, then send them to the show.</span>
                 </div>
             `;
         }
@@ -156,10 +167,11 @@ function spectacleResultMarkup() {
 function advanceDay() {
     state.day += 1;
 
+    const upgradesCompleted = processFacilityUpgradeQueue();
     const trainingCompleted = processTrainingQueue();
-    const spectacleResolved = state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day ? resolvePendingSpectacle() : false;
+    const spectacleReady = markPendingSpectacleReady();
 
-    if (!trainingCompleted && !spectacleResolved) {
+    if (!upgradesCompleted && !trainingCompleted && !spectacleReady) {
         addLog(`The calendar turns to ${formatCalendarDate(currentCalendarDate())} in ${currentCity().name}.`);
     }
 
@@ -208,7 +220,7 @@ function trainingCost(fighter) {
     return 10 + fighter.level * 6 + state.facilities.trainingYard * 3;
 }
 
-function trainFighter(fighterId, stat) {
+function trainFighter(fighterId, stat, days = 1) {
     const fighter = state.roster.find((entry) => entry.id === fighterId);
     if (!fighter) {
         return;
@@ -225,8 +237,9 @@ function trainFighter(fighterId, stat) {
         return;
     }
 
-    state.gold -= cost;
-    const duration = Math.max(1, 3 - Math.floor(state.facilities.trainingYard / 2));
+    const duration = clamp(days, 1, 5);
+
+    state.gold -= cost * duration;
     const label = stat === "hp" ? "HP" : stat === "strength" ? "STR" : "DEF";
 
     state.trainingQueue.push({
@@ -234,12 +247,13 @@ function trainFighter(fighterId, stat) {
         fighterId,
         stat,
         label,
+        days: duration,
         startedTurn: state.day,
         completeTurn: state.day + duration,
-        cost
+        cost: cost * duration
     });
 
-    addLog(`${fighter.name} starts ${label} training. It will take ${duration} days.`);
+    addLog(`${fighter.name} starts ${duration}-day ${label} training.`);
     refreshMarkets(false);
 
 }
@@ -303,6 +317,11 @@ function upgradeFacility(key) {
         return;
     }
 
+    if (state.facilityUpgradeQueue) {
+        addLog(`You already have a building upgrade underway.`);
+        return;
+    }
+
     const catalog = facilityCatalog[key];
     const cost = catalog.baseCost + facility * 26 + state.cityIndex * 14;
     if (state.gold < cost) {
@@ -311,8 +330,15 @@ function upgradeFacility(key) {
     }
 
     state.gold -= cost;
-    state.facilities[key] += 1;
-    addLog(`${catalog.title} upgraded to level ${state.facilities[key]}.`);
+    state.facilityUpgradeQueue = {
+        id: nextId("upgrade"),
+        key,
+        title: catalog.title,
+        startedTurn: state.day,
+        completeTurn: state.day + 14,
+        cost
+    };
+    addLog(`${catalog.title} upgrade queued. It will take 2 weeks.`);
     refreshMarkets(false);
 }
 
@@ -366,17 +392,19 @@ function processTrainingQueue() {
             return;
         }
 
+        const duration = task.days || Math.max(1, task.completeTurn - task.startedTurn);
+
         if (task.stat === "hp") {
-            fighter.maxHp += 2 + Math.floor(state.facilities.trainingYard / 2);
+            fighter.maxHp += 1 + duration;
             fighter.hp = fighter.maxHp;
         } else if (task.stat === "strength") {
-            fighter.strength += 1 + Math.floor(state.facilities.trainingYard / 3);
+            fighter.strength += Math.max(1, Math.ceil(duration / 2));
         } else if (task.stat === "defense") {
-            fighter.defense += 1 + Math.floor(state.facilities.trainingYard / 3);
+            fighter.defense += Math.max(1, Math.ceil(duration / 2));
         }
 
-        gainExperience(fighter, 4 + state.facilities.trainingYard * 2);
-        addLog(`${fighter.name} finishes ${task.label} training.`);
+        gainExperience(fighter, 3 + duration * 2 + state.facilities.trainingYard);
+        addLog(`${fighter.name} finishes ${duration}-day ${task.label} training.`);
     });
 
     return true;
@@ -384,6 +412,31 @@ function processTrainingQueue() {
 
 function listSelectedFighters() {
     return state.roster.filter((fighter) => fighter.alive && state.selectedFighterIds.has(fighter.id));
+}
+
+function processFacilityUpgradeQueue() {
+    const pending = state.facilityUpgradeQueue;
+    if (!pending || pending.completeTurn > state.day) {
+        return false;
+    }
+
+    state.facilities[pending.key] += 1;
+    addLog(`${pending.title} upgraded to level ${state.facilities[pending.key]}.`);
+    state.facilityUpgradeQueue = null;
+    return true;
+}
+
+function markPendingSpectacleReady() {
+    if (!state.pendingSpectacle || state.pendingSpectacle.ready || state.pendingSpectacle.resolveTurn > state.day) {
+        return false;
+    }
+
+    state.pendingSpectacle.ready = true;
+    const spectacle = bookedSpectacle();
+    if (spectacle) {
+        addLog(`${spectacle.title} is ready. Send gladiators from Promoters.`);
+    }
+    return true;
 }
 
 function spectaclePower(fighter) {
@@ -486,7 +539,7 @@ function resolveSpectacleOutcome(spectacle, selected) {
 
 function resolvePendingSpectacle() {
     const pending = state.pendingSpectacle;
-    if (!pending) {
+    if (!pending || !pending.ready) {
         return false;
     }
 
@@ -497,13 +550,10 @@ function resolvePendingSpectacle() {
         return false;
     }
 
-    const selected = pending.fighterIds
-        .map((fighterId) => state.roster.find((fighter) => fighter.id === fighterId && fighter.alive))
-        .filter(Boolean);
+    const selected = listSelectedFighters();
 
     if (selected.length < spectacle.minFighters || selected.length > spectacle.maxFighters) {
-        addLog(`${spectacle.title} could not start because the booked team is no longer valid.`);
-        state.pendingSpectacle = null;
+        addLog(`${spectacle.title} needs between ${spectacle.minFighters} and ${spectacle.maxFighters} fighters before it can begin.`);
         return false;
     }
 
@@ -543,8 +593,8 @@ function queueSpectacle(spectacleId) {
 
     state.pendingSpectacle = {
         spectacleId,
-        fighterIds: selected.map((fighter) => fighter.id),
-        resolveTurn: spectacle.eventTurn
+        resolveTurn: spectacle.eventTurn,
+        ready: false
     };
     state.lastSpectacleResult = null;
     state.selectedFighterIds.clear();
@@ -587,10 +637,12 @@ export {
     upgradeFacility,
     travelToNextCity,
     listSelectedFighters,
+    processFacilityUpgradeQueue,
     spectaclePower,
     resolveSpectacleOutcome,
     resolvePendingSpectacle,
     queueSpectacle,
+    markPendingSpectacleReady,
     toggleSelection,
     cityIndexToNextLabel
 };
