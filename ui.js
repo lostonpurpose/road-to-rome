@@ -114,22 +114,26 @@ function fighterCard(fighter) {
             <div class="fighter-top">
                 <div>
                     <h3 class="fighter-name">${fighter.name}</h3>
-                    <div class="muted">${fighter.title} · ${fighter.style} · ${fighter.origin}</div>
+                        <h1>${state.lanistaName}</h1>
                 </div>
-                <span class="badge gold">Lv ${fighter.level}</span>
+                        <div class="time-summary">
+                            <div class="status-callout pending">
+                                <strong>Today: ${formatCalendarDate(currentCalendarDate())}</strong>
+                                <span>${nextFestival(state.day)
+                                    ? (nextFestival(state.day).daysAway === 0 ? `Next spectacle today: ${nextFestival(state.day).definition.title}.` : `Next spectacle in ${nextFestival(state.day).daysAway} days: ${nextFestival(state.day).definition.title}.`)
+                                    : "No festival dates found."}</span>
+                            </div>
+                        </div>
+                        <div class="hero-actions">
+                            <div class="hero-controls-left">
+                                <div class="view-tabs">${navigation}</div>
+                                <button class="icon-button settings-button" data-action="rename-lanista" aria-label="Rename lanista" title="Rename lanista">⚙</button>
+                            </div>
+                            <div class="turn-actions status-callout pending">
+                                <button data-action="next-day">Next Day</button>
+                                ${spectacleActionMarkup}
             </div>
-            <div class="stats-grid">
-                <div class="stat-box"><span class="label">HP</span><span class="value">${fighter.hp}/${fighterTotalMaxHp(fighter)}</span></div>
-                <div class="stat-box"><span class="label">STR</span><span class="value">${fighterTotalStrength(fighter)}</span></div>
-                <div class="stat-box"><span class="label">DEF</span><span class="value">${fighterTotalDefense(fighter)}</span></div>
-            </div>
-            <div class="badges">
-                <span class="badge info">XP ${fighter.exp}</span>
-                <span class="badge gold">Fame ${fighter.fame}</span>
-                <span class="badge">Renown ${fighter.renown}</span>
-                <span class="badge">Power ${fighterPower(fighter)}</span>
-            </div>
-            <div class="gear-line">
+                        </div>
                 ${gearTags(fighter)}
             </div>
             <div class="status-callout pending">
@@ -457,11 +461,6 @@ function render() {
                 <ul class="log-list">${logMarkup()}</ul>
                 <div class="muted" style="margin-top: 10px;">Selected fighters for the next spectacle: ${selected.length ? selected.map((fighter) => fighter.name).join(", ") : "none"}</div>
             </section>
-
-            <section class="panel status-panel">
-                <h2>Calendar</h2>
-                ${calendarSummaryMarkup()}
-            </section>
         </aside>
     `;
 
@@ -472,16 +471,24 @@ function render() {
                     <div class="hero-copy">
                         <h1>Munus & Glory</h1>
                         <p class="subtitle">You are the lanista of a growing gladiator stable in a backwater Spanish city. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
-                        <div class="hero-actions">
-                            <div class="view-tabs">${navigation}</div>
-                            <div class="turn-actions">
-                                <div class="turn-note-wrap">
-                                    <span class="muted">Day ${state.day}</span>
-                                    <span class="muted turn-note">${spectacleStatusText}</span>
-                                </div>
-                                <button data-action="next-day">Next Day</button>
-                                ${spectacleActionMarkup}
+                        <div class="hero-bottom-row">
+                            <div class="hero-options">
+                                <div class="view-tabs">${navigation}</div>
                             </div>
+                            <div class="time-box status-callout pending">
+                                <div class="time-summary">
+                                    <strong>Today: ${formatCalendarDate(currentCalendarDate())}</strong>
+                                    <span>${nextFestival(state.day)
+                                        ? (nextFestival(state.day).daysAway === 0 ? `Next spectacle today: ${nextFestival(state.day).definition.title}.` : `Next spectacle in ${nextFestival(state.day).daysAway} days: ${nextFestival(state.day).definition.title}.`)
+                                        : "No festival dates found."}</span>
+                                </div>
+                                <div class="time-controls">
+                                    <button data-action="next-day">Next Day</button>
+                                    ${spectacleActionMarkup}
+                                </div>
+                            </div>
+                            <button class="icon-button settings-button" data-action="rename-lanista" aria-label="Rename lanista" title="Rename lanista">⚙</button>
+                        </div>
                     </div>
                     <section class="top-stats hero-stats">
                         <div class="stat-chip"><span class="label">City</span><span class="value">${city.name}</span></div>

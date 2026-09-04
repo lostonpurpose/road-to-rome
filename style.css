@@ -43,13 +43,22 @@ body {
 
 .hero-copy {
     min-width: 0;
+    width: 100%;
     padding-right: clamp(0px, 26vw, 360px);
+    display: flex;
+    flex-direction: column;
+    min-height: 220px;
 }
 
 .hero-stats {
     position: absolute;
     top: 16px;
     right: 16px;
+        width: min(170px, 16vw);
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
     width: min(170px, 16vw);
     margin-top: 0;
     display: flex;
@@ -57,12 +66,22 @@ body {
     gap: 6px;
 }
 
-.hero-actions {
+.time-box {
+    display: grid;
+    gap: 12px;
+    width: fit-content;
+}
+
+.time-summary {
+    display: grid;
+    gap: 8px;
+    justify-items: start;
+}
+
+.hero-controls-left {
     display: flex;
-    justify-content: space-between;
-    gap: 14px;
-    align-items: center;
-    margin-top: 14px;
+    align-items: flex-end;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
@@ -79,15 +98,62 @@ body {
     flex-wrap: wrap;
 }
 
-.turn-note-wrap {
-    display: grid;
-    gap: 4px;
-    justify-items: start;
+.time-controls {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
 }
 
-.turn-note {
-    font-size: 0.76rem;
-    line-height: 1.2;
+.hero-bottom-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px) auto;
+    gap: 14px;
+    align-items: end;
+    margin-top: 14px;
+    width: 100%;
+}
+
+.hero-bottom-row .hero-options {
+    justify-self: start;
+}
+
+.hero-bottom-row .time-box {
+    justify-self: center;
+}
+
+.hero-bottom-row .settings-button {
+    justify-self: end;
+}
+
+.hero-options {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    width: fit-content;
+}
+
+.hero-options .view-tabs {
+    align-items: flex-end;
+}
+
+.time-box .status-callout,
+.time-controls.status-callout {
+    max-width: 360px;
+    padding: 10px 12px;
+}
+
+.icon-button.settings-button {
+    padding: 8px 10px;
+    min-width: auto;
+    line-height: 1;
+}
+
+.icon-button.settings-button:hover,
+.icon-button.settings-button:focus-visible {
+    transform: translateY(-1px);
 }
 
 .spectacle-send-button {

@@ -29,11 +29,34 @@ import {
     turnFromDate
 } from "./calendar.js";
 
+const lanistaNameStorageKey = "munus-glory-lanista-name";
+
+function loadLanistaName() {
+    try {
+        const stored = window.localStorage.getItem(lanistaNameStorageKey);
+        if (!stored || !stored.trim() || stored.trim() === "The Lanista") {
+            return "Munus & Glory";
+        }
+        return stored.trim();
+    } catch {
+        return "Munus & Glory";
+    }
+}
+
+function saveLanistaName(name) {
+    try {
+        window.localStorage.setItem(lanistaNameStorageKey, name);
+    } catch {
+        // Ignore storage failures.
+    }
+}
+
 const state = {
     cityIndex: 0,
     day: turnFromDate(1, 1, 9),
     gold: 80,
-    fame: 12,
+    fame: 0,
+    lanistaName: loadLanistaName(),
     trainingBudget: "med",
     roster: buildStartRoster(),
     recruitMarket: [],
@@ -106,6 +129,17 @@ function setActiveView(view) {
 
     state.activeView = view;
 
+}
+
+function setLanistaName(name) {
+    const nextName = name.trim();
+    if (!nextName) {
+        return false;
+    }
+
+    state.lanistaName = nextName;
+    saveLanistaName(nextName);
+    return true;
 }
 
 function bookedSpectacle() {
@@ -611,6 +645,7 @@ export {
     addLog,
     refreshMarkets,
     setActiveView,
+    setLanistaName,
     bookedSpectacle,
     spectacleResultMarkup,
     advanceDay,

@@ -7,7 +7,9 @@ import {
     resolvePendingSpectacle,
     queueSpectacle,
     refreshMarkets,
+    state,
     setActiveView,
+    setLanistaName,
     setTrainingBudget,
     toggleSelection,
     travelToNextCity,
@@ -59,6 +61,11 @@ app.addEventListener("click", (event) => {
     } else if (action === "next-day") {
         advanceDay();
         render();
+    } else if (action === "rename-lanista") {
+        const nextName = window.prompt("Name your lanista:", state.lanistaName);
+        if (nextName !== null && setLanistaName(nextName)) {
+            render();
+        }
     } else if (action === "set-training-budget") {
         setTrainingBudget(button.dataset.budget);
         render();
