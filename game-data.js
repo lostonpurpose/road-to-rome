@@ -117,6 +117,30 @@ const facilityCatalog = {
     }
 };
 
+const trainingBudgetCatalog = {
+    low: {
+        label: "Low",
+        description: "Cheap, slower progress. Fighters improve every 5 days.",
+        pointsPerDay: 1,
+        goldPerFighter: 1,
+        daysPerStat: 5
+    },
+    med: {
+        label: "Med",
+        description: "Balanced pace. Fighters improve every 3 days.",
+        pointsPerDay: 2,
+        goldPerFighter: 2,
+        daysPerStat: 3
+    },
+    high: {
+        label: "High",
+        description: "Fast, expensive progress. Fighters improve every 2 days.",
+        pointsPerDay: 3,
+        goldPerFighter: 4,
+        daysPerStat: 2
+    }
+};
+
 const viewLabels = {
     hub: "Hub",
     barracks: "Barracks",
@@ -223,7 +247,11 @@ function makeFighter({ name, style, title, level, exp, fame, maxHp, strength, de
         origin,
         cost,
         gear: {},
-        alive: true
+        alive: true,
+        training: {
+            focus: "hp",
+            progress: 0
+        }
     };
 }
 
@@ -440,6 +468,7 @@ export {
     cityChain,
     equipmentCatalog,
     facilityCatalog,
+    trainingBudgetCatalog,
     viewLabels,
     nextId,
     randomFrom,

@@ -8,8 +8,8 @@ import {
     queueSpectacle,
     refreshMarkets,
     setActiveView,
+    setTrainingBudget,
     toggleSelection,
-    trainFighter,
     travelToNextCity,
     upgradeFacility
 } from "./game.js";
@@ -53,17 +53,14 @@ app.addEventListener("click", (event) => {
         render();
     } else if (action === "spectacle-wait") {
         render();
-    } else if (action === "train") {
-        const card = button.closest(".fighter-card");
-        const daysSelect = card ? card.querySelector(`select[data-training-days="${id}"]`) : null;
-        const days = daysSelect ? Number(daysSelect.value) : 1;
-        trainFighter(id, stat, days);
-        render();
     } else if (action === "view") {
         setActiveView(button.dataset.view);
         render();
     } else if (action === "next-day") {
         advanceDay();
+        render();
+    } else if (action === "set-training-budget") {
+        setTrainingBudget(button.dataset.budget);
         render();
     }
 });

@@ -16,6 +16,7 @@ import {
     nextId,
     randomBetween,
     randomFrom,
+    trainingBudgetCatalog,
     styles,
     viewLabels
 } from "./game-data.js";
@@ -33,6 +34,7 @@ const state = {
     day: turnFromDate(1, 1, 9),
     gold: 80,
     fame: 12,
+    trainingBudget: "med",
     roster: buildStartRoster(),
     recruitMarket: [],
     armoryStock: [],
@@ -220,42 +222,17 @@ function trainingCost(fighter) {
     return 10 + fighter.level * 6 + state.facilities.trainingYard * 3;
 }
 
-function trainFighter(fighterId, stat, days = 1) {
-    const fighter = state.roster.find((entry) => entry.id === fighterId);
-    if (!fighter) {
+function setTrainingBudget(key) {
+    if (!trainingBudgetCatalog[key]) {
         return;
     }
 
-    if (state.trainingQueue.some((task) => task.fighterId === fighterId)) {
-        addLog(`${fighter.name} is already training.`);
-        return;
-    }
+    state.trainingBudget = key;
+    addLog(`Training budget set to ${trainingBudgetCatalog[key].label}.`);
+}
 
-    const cost = trainingCost(fighter);
-    if (state.gold < cost) {
-        addLog(`You need ${moneyFormat(cost)} to train ${fighter.name}.`);
-        return;
-    }
-
-    const duration = clamp(days, 1, 5);
-
-    state.gold -= cost * duration;
-    const label = stat === "hp" ? "HP" : stat === "strength" ? "STR" : "DEF";
-
-    state.trainingQueue.push({
-        id: nextId("training"),
-        fighterId,
-        stat,
-        label,
-        days: duration,
-        startedTurn: state.day,
-        completeTurn: state.day + duration,
-        cost: cost * duration
-    });
-
-    addLog(`${fighter.name} starts ${duration}-day ${label} training.`);
-    refreshMarkets(false);
-
+function trainFighter() {
+    addLog("Training is managed by the stable-wide budget now.");
 }
 
 function hireRecruit(fighterId) {
@@ -379,35 +356,46 @@ function travelToNextCity() {
 }
 
 function processTrainingQueue() {
-    const completedTasks = state.trainingQueue.filter((task) => task.completeTurn <= state.day);
-    if (completedTasks.length === 0) {
+    const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
+    const aliveFighters = state.roster.filter((fighter) => fighter.alive);
+
+    if (aliveFighters.length === 0) {
         return false;
     }
 
-    state.trainingQueue = state.trainingQueue.filter((task) => task.completeTurn > state.day);
-    completedTasks.forEach((task) => {
-        const fighter = state.roster.find((entry) => entry.id === task.fighterId && entry.alive);
-        if (!fighter) {
-            addLog("A training session ends, but the fighter is no longer available.");
-            return;
+    const totalCost = aliveFighters.length * budget.goldPerFighter;
+    state.gold = Math.max(0, state.gold - totalCost);
+
+    let anyProgress = false;
+    aliveFighters.forEach((fighter) => {
+        const training = fighter.training || { focus: "hp", progress: 0 };
+        training.progress += budget.pointsPerDay;
+
+        while (training.progress >= budget.daysPerStat) {
+            training.progress -= budget.daysPerStat;
+
+            if (training.focus === "hp") {
+                fighter.maxHp += 1;
+                fighter.hp = fighter.maxHp;
+            } else if (training.focus === "strength") {
+                fighter.strength += 1;
+            } else {
+                fighter.defense += 1;
+            }
+
+            training.focus = training.focus === "hp" ? "strength" : training.focus === "strength" ? "defense" : "hp";
+            gainExperience(fighter, 2 + budget.pointsPerDay);
+            anyProgress = true;
         }
 
-        const duration = task.days || Math.max(1, task.completeTurn - task.startedTurn);
-
-        if (task.stat === "hp") {
-            fighter.maxHp += 1 + duration;
-            fighter.hp = fighter.maxHp;
-        } else if (task.stat === "strength") {
-            fighter.strength += Math.max(1, Math.ceil(duration / 2));
-        } else if (task.stat === "defense") {
-            fighter.defense += Math.max(1, Math.ceil(duration / 2));
-        }
-
-        gainExperience(fighter, 3 + duration * 2 + state.facilities.trainingYard);
-        addLog(`${fighter.name} finishes ${duration}-day ${task.label} training.`);
+        fighter.training = training;
     });
 
-    return true;
+    if (anyProgress) {
+        addLog(`The ${budget.label.toLowerCase()} training budget pays off.`);
+    }
+
+    return anyProgress;
 }
 
 function listSelectedFighters() {
@@ -594,7 +582,6 @@ function queueSpectacle(spectacleId) {
     state.pendingSpectacle = {
         spectacleId,
         resolveTurn: spectacle.eventTurn,
-        ready: false
     };
     state.lastSpectacleResult = null;
     state.selectedFighterIds.clear();
@@ -632,6 +619,7 @@ export {
     itemBonusSummary,
     trainingCost,
     trainFighter,
+    setTrainingBudget,
     hireRecruit,
     buyItem,
     upgradeFacility,

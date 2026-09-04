@@ -12,6 +12,7 @@ import {
     fighterTotalStrength,
     itemBonusSummary,
     moneyFormat,
+    trainingBudgetCatalog,
     viewLabels
 } from "./game-data.js";
 
@@ -27,7 +28,6 @@ import {
     stableCap,
     state,
     spectacleResultMarkup,
-    trainingCost
 } from "./game.js";
 
 const app = document.getElementById("app");
@@ -47,33 +47,17 @@ function gearTags(fighter) {
     return tags.join("");
 }
 
-function trainingQueueMarkup() {
-    if (state.trainingQueue.length === 0) {
-        return `
-            <div class="status-callout">
-                <strong>No training underway.</strong>
-                <span>Start a drill from a fighter card and let time do the work.</span>
-            </div>
-        `;
-    }
-
+function trainingBudgetMarkup() {
+    const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
     return `
-        <div class="calendar-list">
-            ${state.trainingQueue.map((task) => {
-                const fighter = state.roster.find((entry) => entry.id === task.fighterId);
-                return `
-                    <article class="calendar-card">
-                        <div class="card-head">
-                            <div>
-                                <h4 class="market-title">${fighter ? fighter.name : "Unknown fighter"}</h4>
-                                <div class="muted">Training ${task.label}</div>
-                            </div>
-                            <span class="badge gold">${formatCalendarDate(task.completeTurn)}</span>
-                        </div>
-                        <p class="small">${task.days || Math.max(1, task.completeTurn - task.startedTurn)} day drill already in motion.</p>
-                    </article>
-                `;
-            }).join("")}
+        <div class="status-callout pending">
+            <strong>${budget.label} training budget active.</strong>
+            <span>All living gladiators train automatically every day. Low = ${trainingBudgetCatalog.low.daysPerStat} days per stat, Med = ${trainingBudgetCatalog.med.daysPerStat}, High = ${trainingBudgetCatalog.high.daysPerStat}.</span>
+        </div>
+        <div class="budget-row">
+            ${Object.entries(trainingBudgetCatalog).map(([key, entry]) => `
+                <button class="secondary ${state.trainingBudget === key ? "active" : ""}" data-action="set-training-budget" data-budget="${key}">${entry.label}</button>
+            `).join("")}
         </div>
     `;
 }
@@ -94,11 +78,9 @@ function calendarSummaryMarkup() {
 }
 
 function fighterCard(fighter) {
-    const trainingTask = state.trainingQueue.find((task) => task.fighterId === fighter.id);
-    const inTraining = state.trainingQueue.some((task) => task.fighterId === fighter.id);
-    const trainingOptions = [1, 2, 3, 4, 5]
-        .map((days) => `<option value="${days}" ${days === 2 ? "selected" : ""}>${days} day${days === 1 ? "" : "s"}</option>`)
-        .join("");
+    const training = fighter.training || { focus: "hp", progress: 0 };
+    const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
+    const focusLabel = training.focus === "hp" ? "HP" : training.focus === "strength" ? "STR" : "DEF";
     const weaponGear = state.armoryStock.filter((item) => item.slot === "weapon" && state.gold >= item.cost);
     const armorGear = state.armoryStock.filter((item) => item.slot === "armor" && state.gold >= item.cost);
     const trinketGear = state.armoryStock.filter((item) => item.slot === "trinket" && state.gold >= item.cost);
@@ -150,19 +132,11 @@ function fighterCard(fighter) {
             <div class="gear-line">
                 ${gearTags(fighter)}
             </div>
-            ${inTraining ? `<div class="status-callout pending"><strong>Training in progress.</strong><span>This fighter will return in ${trainingTask ? trainingTask.days : 1} day${(trainingTask ? trainingTask.days : 1) === 1 ? "" : "s"} when the current drill completes.</span></div>` : ""}
-            ${gearSection}
-            <label class="market-target training-target">
-                <span class="muted small">Train for</span>
-                <select data-training-days="${fighter.id}">
-                    ${trainingOptions}
-                </select>
-            </label>
-            <div class="fighter-actions">
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="hp" ${inTraining ? "disabled" : ""}>Train HP</button>
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="strength" ${inTraining ? "disabled" : ""}>Train STR</button>
-                <button class="secondary" data-action="train" data-id="${fighter.id}" data-stat="defense" ${inTraining ? "disabled" : ""}>Train DEF</button>
+            <div class="status-callout pending">
+                <strong>Training ${focusLabel} automatically.</strong>
+                <span>${training.progress}/${budget.daysPerStat} training points toward the next ${focusLabel} gain.</span>
             </div>
+            ${gearSection}
         </article>
     `;
 }
@@ -282,7 +256,7 @@ function spectacleCard(spectacle) {
                 <span class="badge gold">${moneyFormat(spectacle.baseGold)} base purse</span>
                 <span class="badge">+${spectacle.baseFame} fame</span>
                 <span class="badge">${eventDate}</span>
-                <span class="badge">${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away</span>
+                <span class="badge">${spectacle.daysAway === 0 ? "Today" : `${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away`}</span>
                 <span class="badge">Risk ${Math.round(spectacle.risk * 100)}%</span>
             </div>
             <div class="opponents-line">
@@ -380,6 +354,12 @@ function render() {
         screenMarkup = `
             <div class="screen-grid two-up">
                 <section class="panel">
+                    <div class="panel-section">
+                        <h3>Training Budget</h3>
+                        <div class="panel-section compact">
+                            ${trainingBudgetMarkup()}
+                        </div>
+                    </div>
                     <div class="panel-section">
                         <h3>Roster</h3>
                         <div class="roster-list">
@@ -481,11 +461,6 @@ function render() {
             <section class="panel status-panel">
                 <h2>Calendar</h2>
                 ${calendarSummaryMarkup()}
-            </section>
-
-            <section class="panel status-panel">
-                <h2>Training Queue</h2>
-                ${trainingQueueMarkup()}
             </section>
         </aside>
     `;
