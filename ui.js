@@ -31,6 +31,16 @@ import {
 } from "./game.js";
 
 const app = document.getElementById("app");
+
+function escapeAttribute(value) {
+    return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("'", "&#39;");
+}
+
 function gearTags(fighter) {
     const tags = [];
     const slots = ["weapon", "armor", "trinket"];
@@ -81,6 +91,7 @@ function fighterCard(fighter) {
     const training = fighter.training || { focus: "hp", progress: 0 };
     const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
     const focusLabel = training.focus === "hp" ? "HP" : training.focus === "strength" ? "STR" : "DEF";
+    const selectedForSpectacle = state.selectedFighterIds.has(fighter.id);
     const weaponGear = state.armoryStock.filter((item) => item.slot === "weapon" && state.gold >= item.cost);
     const armorGear = state.armoryStock.filter((item) => item.slot === "armor" && state.gold >= item.cost);
     const trinketGear = state.armoryStock.filter((item) => item.slot === "trinket" && state.gold >= item.cost);
@@ -108,34 +119,34 @@ function fighterCard(fighter) {
             ` : ""}
         </div>
     ` : "";
-    
+
     return `
         <article class="fighter-card">
             <div class="fighter-top">
                 <div>
                     <h3 class="fighter-name">${fighter.name}</h3>
-                        <h1>${state.lanistaName}</h1>
+                    <div class="muted">${fighter.title} · ${fighter.style} · ${fighter.origin}</div>
                 </div>
-                        <div class="time-summary">
-                            <div class="status-callout pending">
-                                <strong>Today: ${formatCalendarDate(currentCalendarDate())}</strong>
-                                <span>${nextFestival(state.day)
-                                    ? (nextFestival(state.day).daysAway === 0 ? `Next spectacle today: ${nextFestival(state.day).definition.title}.` : `Next spectacle in ${nextFestival(state.day).daysAway} days: ${nextFestival(state.day).definition.title}.`)
-                                    : "No festival dates found."}</span>
-                            </div>
-                        </div>
-                        <div class="hero-actions">
-                            <div class="hero-controls-left">
-                                <div class="view-tabs">${navigation}</div>
-                                <button class="icon-button settings-button" data-action="rename-lanista" aria-label="Rename lanista" title="Rename lanista">⚙</button>
-                            </div>
-                            <div class="turn-actions status-callout pending">
-                                <button data-action="next-day">Next Day</button>
-                                ${spectacleActionMarkup}
+                <span class="badge gold">Lv ${fighter.level}</span>
             </div>
-                        </div>
+            <div class="stats-grid">
+                <div class="stat-box"><span class="label">HP</span><span class="value">${fighter.hp}/${fighterTotalMaxHp(fighter)}</span></div>
+                <div class="stat-box"><span class="label">STR</span><span class="value">${fighterTotalStrength(fighter)}</span></div>
+                <div class="stat-box"><span class="label">DEF</span><span class="value">${fighterTotalDefense(fighter)}</span></div>
+            </div>
+            <div class="badges">
+                <span class="badge info">XP ${fighter.exp}</span>
+                <span class="badge gold">Fame ${fighter.fame}</span>
+                <span class="badge">Renown ${fighter.renown}</span>
+                <span class="badge">Power ${fighterPower(fighter)}</span>
+            </div>
+            <div class="gear-line">
                 ${gearTags(fighter)}
             </div>
+            <label class="checkbox-line spectacle-select-line">
+                <input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${selectedForSpectacle ? "checked" : ""}>
+                Select for next spectacle
+            </label>
             <div class="status-callout pending">
                 <strong>Training ${focusLabel} automatically.</strong>
                 <span>${training.progress}/${budget.daysPerStat} training points toward the next ${focusLabel} gain.</span>
@@ -464,12 +475,25 @@ function render() {
         </aside>
     `;
 
+    const renameOverlayMarkup = state.lanistaRenameOpen ? `
+        <div class="rename-overlay">
+            <div class="panel rename-panel">
+                <h3>Rename Lanista</h3>
+                <input data-action="rename-lanista-input" type="text" value="${escapeAttribute(state.lanistaRenameDraft)}" maxlength="40" />
+                <div class="card-actions">
+                    <button data-action="rename-lanista-save">Save</button>
+                    <button class="secondary" data-action="rename-lanista-cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    ` : "";
+
     app.innerHTML = `
         <div class="shell">
             <header class="hero-banner">
                 <div class="hero-banner-inner">
                     <div class="hero-copy">
-                        <h1>Munus & Glory</h1>
+                        <h1>${state.lanistaName}</h1>
                         <p class="subtitle">You are the lanista of a growing gladiator stable in a backwater Spanish city. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
                         <div class="hero-bottom-row">
                             <div class="hero-options">
@@ -487,7 +511,6 @@ function render() {
                                     ${spectacleActionMarkup}
                                 </div>
                             </div>
-                            <button class="icon-button settings-button" data-action="rename-lanista" aria-label="Rename lanista" title="Rename lanista">⚙</button>
                         </div>
                     </div>
                     <section class="top-stats hero-stats">
@@ -502,6 +525,7 @@ function render() {
                             </div>
                         </div>
                     </section>
+                    <button class="icon-button settings-button hero-settings-button" data-action="rename-lanista" aria-label="Rename lanista" title="Rename lanista">⚙</button>
                 </div>
             </header>
 
@@ -512,6 +536,7 @@ function render() {
 
                 ${statusSidebarMarkup}
             </div>
+            ${renameOverlayMarkup}
         </div>
     `;
 }

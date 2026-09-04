@@ -10,6 +10,10 @@ import {
     state,
     setActiveView,
     setLanistaName,
+    openLanistaRename,
+    cancelLanistaRename,
+    confirmLanistaRename,
+    updateLanistaRenameDraft,
     setTrainingBudget,
     toggleSelection,
     travelToNextCity,
@@ -62,10 +66,15 @@ app.addEventListener("click", (event) => {
         advanceDay();
         render();
     } else if (action === "rename-lanista") {
-        const nextName = window.prompt("Name your lanista:", state.lanistaName);
-        if (nextName !== null && setLanistaName(nextName)) {
+        openLanistaRename();
+        render();
+    } else if (action === "rename-lanista-save") {
+        if (confirmLanistaRename()) {
             render();
         }
+    } else if (action === "rename-lanista-cancel") {
+        cancelLanistaRename();
+        render();
     } else if (action === "set-training-budget") {
         setTrainingBudget(button.dataset.budget);
         render();
@@ -78,6 +87,13 @@ app.addEventListener("change", (event) => {
         toggleSelection(spectacleCheckbox.dataset.fighterId, spectacleCheckbox.checked);
         render();
         return;
+    }
+});
+
+app.addEventListener("input", (event) => {
+    const renameInput = event.target.closest("input[data-action='rename-lanista-input']");
+    if (renameInput) {
+        updateLanistaRenameDraft(renameInput.value);
     }
 });
 

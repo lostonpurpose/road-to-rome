@@ -57,6 +57,8 @@ const state = {
     gold: 80,
     fame: 0,
     lanistaName: loadLanistaName(),
+    lanistaRenameOpen: false,
+    lanistaRenameDraft: "",
     trainingBudget: "med",
     roster: buildStartRoster(),
     recruitMarket: [],
@@ -139,7 +141,27 @@ function setLanistaName(name) {
 
     state.lanistaName = nextName;
     saveLanistaName(nextName);
+    state.lanistaRenameOpen = false;
+    state.lanistaRenameDraft = "";
     return true;
+}
+
+function openLanistaRename() {
+    state.lanistaRenameDraft = state.lanistaName;
+    state.lanistaRenameOpen = true;
+}
+
+function cancelLanistaRename() {
+    state.lanistaRenameOpen = false;
+    state.lanistaRenameDraft = "";
+}
+
+function updateLanistaRenameDraft(value) {
+    state.lanistaRenameDraft = value;
+}
+
+function confirmLanistaRename() {
+    return setLanistaName(state.lanistaRenameDraft);
 }
 
 function bookedSpectacle() {
@@ -646,6 +668,10 @@ export {
     refreshMarkets,
     setActiveView,
     setLanistaName,
+    openLanistaRename,
+    cancelLanistaRename,
+    updateLanistaRenameDraft,
+    confirmLanistaRename,
     bookedSpectacle,
     spectacleResultMarkup,
     advanceDay,
