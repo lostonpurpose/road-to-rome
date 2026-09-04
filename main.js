@@ -6,6 +6,8 @@ import {
     hireRecruit,
     resolvePendingSpectacle,
     queueSpectacle,
+    openSpectacleBooking,
+    closeSpectacleBooking,
     refreshMarkets,
     state,
     setActiveView,
@@ -51,8 +53,15 @@ app.addEventListener("click", (event) => {
     } else if (action === "travel") {
         travelToNextCity();
         render();
-    } else if (action === "spectacle-book") {
-        queueSpectacle(id);
+    } else if (action === "spectacle-open") {
+        openSpectacleBooking(id);
+        render();
+    } else if (action === "spectacle-book-confirm") {
+        if (queueSpectacle(id)) {
+            render();
+        }
+    } else if (action === "spectacle-book-cancel") {
+        closeSpectacleBooking();
         render();
     } else if (action === "spectacle-send") {
         resolvePendingSpectacle();
@@ -61,6 +70,14 @@ app.addEventListener("click", (event) => {
         render();
     } else if (action === "view") {
         setActiveView(button.dataset.view);
+        if (button.dataset.view === "promoters") {
+            const nextSpectacle = state.spectacleBoard[0];
+            if (nextSpectacle) {
+                openSpectacleBooking(nextSpectacle.id);
+            }
+        } else {
+            closeSpectacleBooking();
+        }
         render();
     } else if (action === "next-day") {
         advanceDay();

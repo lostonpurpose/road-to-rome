@@ -67,7 +67,8 @@ body {
     bottom: 16px;
 }
 
-.rename-overlay {
+.rename-overlay,
+.spectacle-overlay {
     position: fixed;
     inset: 0;
     display: grid;
@@ -75,10 +76,46 @@ body {
     background: rgba(13, 9, 6, 0.68);
     z-index: 20;
     padding: 20px;
+    backdrop-filter: blur(4px);
 }
 
 .rename-panel {
-    width: min(92vw, 360px);
+    width: min(92vw, 720px);
+    min-height: min(70vh, 640px);
+    display: grid;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 22px;
+    position: relative;
+    overflow: auto;
+}
+
+.rename-panel-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.rename-panel-head h3,
+.rename-options h4,
+.rename-editor h4 {
+    margin: 0;
+}
+
+.rename-panel-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.rename-options,
+.rename-editor {
+    border: 1px solid rgba(255, 224, 168, 0.14);
+    background: rgba(17, 11, 8, 0.34);
+    border-radius: 16px;
+    padding: 14px;
     display: grid;
     gap: 12px;
 }
@@ -91,6 +128,64 @@ body {
     color: #f7ecd5;
     padding: 10px 12px;
     font: inherit;
+}
+
+.rename-options .secondary {
+    justify-content: flex-start;
+}
+
+.spectacle-panel {
+    width: min(92vw, 860px);
+    min-height: min(76vh, 720px);
+    display: grid;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 22px;
+    position: relative;
+    overflow: auto;
+}
+
+.spectacle-panel-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(280px, 1.15fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.spectacle-details,
+.spectacle-selection {
+    border: 1px solid rgba(255, 224, 168, 0.14);
+    background: rgba(17, 11, 8, 0.34);
+    border-radius: 16px;
+    padding: 14px;
+    display: grid;
+    gap: 12px;
+}
+
+.spectacle-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.spectacle-fighter-list {
+    display: grid;
+    gap: 8px;
+    max-height: min(48vh, 420px);
+    overflow: auto;
+    padding-right: 4px;
+}
+
+@media (max-width: 760px) {
+    .spectacle-panel-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .rename-panel-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .time-box {

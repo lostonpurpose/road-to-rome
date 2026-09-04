@@ -64,6 +64,8 @@ const state = {
     recruitMarket: [],
     armoryStock: [],
     spectacleBoard: [],
+    spectacleBookingOpen: false,
+    spectacleBookingSpectacleId: null,
     trainingQueue: [],
     facilityUpgradeQueue: null,
     pendingSpectacle: null,
@@ -454,8 +456,9 @@ function processTrainingQueue() {
     return anyProgress;
 }
 
-function listSelectedFighters() {
-    return state.roster.filter((fighter) => fighter.alive && state.selectedFighterIds.has(fighter.id));
+function listSelectedFighters(fighterIds = state.selectedFighterIds) {
+    const ids = fighterIds instanceof Set ? fighterIds : new Set(fighterIds || []);
+    return state.roster.filter((fighter) => fighter.alive && ids.has(fighter.id));
 }
 
 function processFacilityUpgradeQueue() {
@@ -594,7 +597,7 @@ function resolvePendingSpectacle() {
         return false;
     }
 
-    const selected = listSelectedFighters();
+    const selected = listSelectedFighters(pending.fighterIds);
 
     if (selected.length < spectacle.minFighters || selected.length > spectacle.maxFighters) {
         addLog(`${spectacle.title} needs between ${spectacle.minFighters} and ${spectacle.maxFighters} fighters before it can begin.`);
@@ -618,30 +621,54 @@ function resolvePendingSpectacle() {
     return true;
 }
 
-function queueSpectacle(spectacleId) {
+function openSpectacleBooking(spectacleId) {
     if (state.pendingSpectacle) {
         addLog(`A spectacle is already booked for ${formatCalendarDate(state.pendingSpectacle.resolveTurn)}.`);
-        return;
+        return false;
     }
 
     const spectacle = state.spectacleBoard.find((entry) => entry.id === spectacleId);
     if (!spectacle) {
-        return;
+        return false;
+    }
+
+    state.spectacleBookingSpectacleId = spectacleId;
+    state.spectacleBookingOpen = true;
+    return true;
+}
+
+function closeSpectacleBooking() {
+    state.spectacleBookingOpen = false;
+    state.spectacleBookingSpectacleId = null;
+}
+
+function queueSpectacle(spectacleId) {
+    if (state.pendingSpectacle) {
+        addLog(`A spectacle is already booked for ${formatCalendarDate(state.pendingSpectacle.resolveTurn)}.`);
+        return false;
+    }
+
+    const spectacle = state.spectacleBoard.find((entry) => entry.id === spectacleId);
+    if (!spectacle) {
+        return false;
     }
 
     const selected = listSelectedFighters();
     if (selected.length < spectacle.minFighters || selected.length > spectacle.maxFighters) {
         addLog(`${spectacle.title} needs between ${spectacle.minFighters} and ${spectacle.maxFighters} fighters.`);
-        return;
+        return false;
     }
 
     state.pendingSpectacle = {
         spectacleId,
         resolveTurn: spectacle.eventTurn,
+        fighterIds: [...state.selectedFighterIds]
     };
     state.lastSpectacleResult = null;
+    closeSpectacleBooking();
     state.selectedFighterIds.clear();
     addLog(`${spectacle.title} is booked for ${formatCalendarDate(state.pendingSpectacle.resolveTurn)}.`);
+    return true;
 }
 
 function toggleSelection(fighterId, checked) {
@@ -690,6 +717,8 @@ export {
     spectaclePower,
     resolveSpectacleOutcome,
     resolvePendingSpectacle,
+    openSpectacleBooking,
+    closeSpectacleBooking,
     queueSpectacle,
     markPendingSpectacleReady,
     toggleSelection,

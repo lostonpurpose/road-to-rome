@@ -156,6 +156,65 @@ function fighterCard(fighter) {
     `;
 }
 
+function spectacleBookingMarkup() {
+    if (!state.spectacleBookingOpen || !state.spectacleBookingSpectacleId) {
+        return "";
+    }
+
+    const spectacle = state.spectacleBoard.find((entry) => entry.id === state.spectacleBookingSpectacleId);
+    if (!spectacle) {
+        return "";
+    }
+
+    const selected = listSelectedFighters();
+    const validSelection = selected.length >= spectacle.minFighters && selected.length <= spectacle.maxFighters;
+    const eligibleFighters = state.roster.filter((fighter) => fighter.alive);
+    const requestText = spectacle.minFighters === spectacle.maxFighters
+        ? `${spectacle.minFighters} fighter${spectacle.minFighters === 1 ? "" : "s"}`
+        : `${spectacle.minFighters}-${spectacle.maxFighters} fighters`;
+
+    return `
+        <div class="rename-overlay spectacle-overlay">
+            <div class="panel spectacle-panel">
+                <div class="rename-panel-head">
+                    <div>
+                        <h3>${spectacle.title}</h3>
+                        <p class="small muted">${spectacle.sponsor} · ${spectacle.venue}</p>
+                    </div>
+                    <button class="secondary tiny" data-action="spectacle-book-cancel">Close</button>
+                </div>
+                <div class="spectacle-panel-grid">
+                    <section class="spectacle-details">
+                        <h4>Show details</h4>
+                        <div class="spectacle-meta">
+                            <span class="badge gold">${moneyFormat(spectacle.baseGold)} payment</span>
+                            <span class="badge">+${spectacle.baseFame} fame</span>
+                            <span class="badge">Requests ${requestText}</span>
+                            <span class="badge ${spectacle.toTheDeath ? "danger" : "info"}">${spectacle.toTheDeath ? "To the death" : "Standard exhibition"}</span>
+                        </div>
+                        <p class="small">${spectacle.flavor}</p>
+                        <p class="small muted">The show starts simple at game start: no to-the-death booking yet. Pick the fighters here, then confirm the booking.</p>
+                        <div class="status-callout pending">
+                            <strong>${validSelection ? `${selected.length} fighter${selected.length === 1 ? "" : "s"} selected.` : `Pick ${requestText} to book this show.`}</strong>
+                            <span>${spectacle.daysAway === 0 ? "This spectacle is for today." : `${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away.`}</span>
+                        </div>
+                    </section>
+                    <section class="spectacle-selection">
+                        <h4>Choose fighters</h4>
+                        <div class="spectacle-fighter-list">
+                            ${eligibleFighters.map((fighter) => `<label class="checkbox-line"><input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${state.selectedFighterIds.has(fighter.id) ? "checked" : ""}> ${fighter.name} (Power: ${fighterPower(fighter)}, Renown: ${fighter.renown})</label>`).join("") || `<p class="small muted">No living fighters available.</p>`}
+                        </div>
+                        <div class="card-actions">
+                            <button data-action="spectacle-book-confirm" data-id="${spectacle.id}" ${validSelection ? "" : "disabled"}>Confirm booking</button>
+                            <button class="secondary" data-action="spectacle-book-cancel">Cancel</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function recruitCard(recruit) {
     const affordable = state.gold >= recruit.cost;
     const full = state.roster.length >= stableCap();
@@ -244,18 +303,9 @@ function spectacleCard(spectacle) {
     const ready = booked && state.pendingSpectacle.resolveTurn <= state.day;
     const blocked = Boolean(state.pendingSpectacle) && !booked;
     const eventDate = formatCalendarDate(spectacle.eventTurn);
-    const selected = listSelectedFighters();
-    const validSelection = selected.length >= spectacle.minFighters && selected.length <= spectacle.maxFighters;
-
-    const fighterOptions = ready
-        ? state.roster
-            .filter((fighter) => fighter.alive)
-            .map((fighter) => `<label class="checkbox-line"><input type="checkbox" class="spectacle-fighter-select" data-spectacle-id="${spectacle.id}" data-fighter-id="${fighter.id}" ${selected.some((f) => f.id === fighter.id) ? "checked" : ""}> ${fighter.name} (Power: ${fighterPower(fighter)}, Renown: ${fighter.renown})</label>`)
-            .join("")
-        : "";
-
     const actionLabel = booked ? (ready ? "Send gladiators" : `Booked for ${eventDate}`) : "Book spectacle";
-    const actionAction = booked ? (ready ? "spectacle-send" : "spectacle-wait") : "spectacle-book";
+    const actionAction = booked ? (ready ? "spectacle-send" : "spectacle-wait") : "spectacle-open";
+    const typeLabel = spectacle.toTheDeath ? "Sine missione" : "Missio possible";
     
     return `
         <article class="spectacle-card">
@@ -272,6 +322,7 @@ function spectacleCard(spectacle) {
                 <span class="badge">+${spectacle.baseFame} fame</span>
                 <span class="badge">${eventDate}</span>
                 <span class="badge">${spectacle.daysAway === 0 ? "Today" : `${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away`}</span>
+                <span class="badge ${spectacle.toTheDeath ? "danger" : "info"}">${typeLabel}</span>
                 <span class="badge">Risk ${Math.round(spectacle.risk * 100)}%</span>
             </div>
             <div class="opponents-line">
@@ -279,19 +330,12 @@ function spectacleCard(spectacle) {
                 ${spectacle.requestedName ? `<span class="badge gold">${spectacle.requestedName} requested</span>` : ""}
                 ${spectacle.opponents.map((opponent) => `<span class="badge">${opponent.name}, ${opponent.title}</span>`).join("")}
             </div>
-            ${ready ? `
-                <div class="fighter-selection">
-                    <div class="muted small" style="margin-bottom: 8px;">Select fighters for this show:</div>
-                    ${fighterOptions}
-                </div>
-            ` : `
-                <div class="status-callout pending">
-                    <strong>${booked ? `Booked for ${eventDate}.` : `This show is available on ${eventDate}.`}</strong>
-                    <span>${booked ? "When the day arrives, you can send gladiators from here." : "Book it now, then wait for the day to send fighters."}</span>
-                </div>
-            `}
+            <div class="status-callout pending">
+                <strong>${booked ? `Booked for ${eventDate}.` : `This show is available on ${eventDate}.`}</strong>
+                <span>${booked ? "When the day arrives, you can send gladiators from here." : `Book it now and pick ${spectacle.minFighters === spectacle.maxFighters ? `${spectacle.minFighters} fighter` : `${spectacle.minFighters}-${spectacle.maxFighters} fighters`} in the modal.`}</span>
+            </div>
             <div class="market-actions">
-                <button data-action="${actionAction}" data-id="${spectacle.id}" ${!blocked && (!booked || (ready && validSelection)) ? "" : "disabled"}>${actionLabel}</button>
+                <button data-action="${actionAction}" data-id="${spectacle.id}" ${!blocked ? "" : "disabled"}>${actionLabel}</button>
             </div>
         </article>
     `;
@@ -324,7 +368,7 @@ function render() {
     const fameTarget = state.cityIndex >= cityChain.length - 1 ? state.fame : next.fameRequired;
     const fameBarWidth = Math.round(fameProgress() * 100);
     const cityBarWidth = Math.round(nextCityProgress() * 100);
-    const selected = listSelectedFighters();
+    const selected = state.pendingSpectacle?.fighterIds ? listSelectedFighters(state.pendingSpectacle.fighterIds) : listSelectedFighters();
     const navigation = Object.keys(viewLabels)
         .map((view) => `<button class="${state.activeView === view ? "secondary active" : "secondary"}" data-action="view" data-view="${view}">${viewLabels[view]}</button>`)
         .join("");
@@ -478,15 +522,35 @@ function render() {
     const renameOverlayMarkup = state.lanistaRenameOpen ? `
         <div class="rename-overlay">
             <div class="panel rename-panel">
-                <h3>Rename Lanista</h3>
-                <input data-action="rename-lanista-input" type="text" value="${escapeAttribute(state.lanistaRenameDraft)}" maxlength="40" />
-                <div class="card-actions">
-                    <button data-action="rename-lanista-save">Save</button>
-                    <button class="secondary" data-action="rename-lanista-cancel">Cancel</button>
+                <div class="rename-panel-head">
+                    <div>
+                        <h3>Lanista Quarters</h3>
+                        <p class="small muted">Manage your stable identity from here. More options can live in this box later.</p>
+                    </div>
+                    <button class="secondary tiny" data-action="rename-lanista-cancel">Close</button>
+                </div>
+                <div class="rename-panel-grid">
+                    <section class="rename-options">
+                        <h4>Options</h4>
+                        <button class="secondary active" type="button">Rename lanista</button>
+                        <button class="secondary" type="button" disabled>Future option</button>
+                        <button class="secondary" type="button" disabled>Future option</button>
+                    </section>
+                    <section class="rename-editor">
+                        <h4>Rename Lanista</h4>
+                        <p class="small muted">This name appears in the banner and is saved between sessions.</p>
+                        <input data-action="rename-lanista-input" type="text" value="${escapeAttribute(state.lanistaRenameDraft)}" maxlength="40" />
+                        <div class="card-actions">
+                            <button data-action="rename-lanista-save">Save changes</button>
+                            <button class="secondary" data-action="rename-lanista-cancel">Cancel</button>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
     ` : "";
+
+    const spectacleOverlayMarkup = spectacleBookingMarkup();
 
     app.innerHTML = `
         <div class="shell">
@@ -537,6 +601,7 @@ function render() {
                 ${statusSidebarMarkup}
             </div>
             ${renameOverlayMarkup}
+            ${spectacleOverlayMarkup}
         </div>
     `;
 }
