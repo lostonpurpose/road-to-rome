@@ -156,13 +156,13 @@ function moneyFormat(value) {
 function itemBonusSummary(item) {
     const parts = [];
     if (item.bonus.strength) {
-        parts.push(`+${item.bonus.strength} STR`);
+        parts.push(`+${item.bonus.strength} ATHLETICISM`);
     }
     if (item.bonus.defense) {
-        parts.push(`+${item.bonus.defense} DEF`);
+        parts.push(`+${item.bonus.defense} THEATRICS`);
     }
     if (item.bonus.hp) {
-        parts.push(`+${item.bonus.hp} HP`);
+        parts.push(`+${item.bonus.hp} CONSTITUTION`);
     }
     if (item.bonus.fame) {
         parts.push(`+${item.bonus.fame} FAME`);
@@ -452,7 +452,7 @@ function buildStartRoster() {
             title: "provincial novice",
             level: 1,
             exp: 0,
-            fame: 3,
+            fame: 0,
             maxHp: 10,
             strength: 3,
             defense: 2,

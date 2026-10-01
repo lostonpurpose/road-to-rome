@@ -63,6 +63,8 @@ const state = {
     roster: buildStartRoster(),
     recruitMarket: [],
     armoryStock: [],
+    armoryOwned: [],
+    armoryShopOpen: false,
     spectacleBoard: [],
     spectacleBookingOpen: false,
     spectacleBookingSpectacleId: null,
@@ -70,6 +72,7 @@ const state = {
     facilityUpgradeQueue: null,
     pendingSpectacle: null,
     lastSpectacleResult: null,
+    spectacleResultOpen: false,
     activeView: "hub",
     facilities: {
         barracks: 1,
@@ -120,7 +123,9 @@ function addLog(message) {
 
 function refreshMarkets(refreshSpectacles = false) {
     state.recruitMarket = buildRecruitMarket(state.cityIndex);
-    state.armoryStock = buildArmoryStock(state.cityIndex, state.facilities.armory);
+    if (refreshSpectacles || state.armoryStock.length === 0) {
+        state.armoryStock = buildArmoryStock(state.cityIndex, state.facilities.armory);
+    }
     if (refreshSpectacles) {
         state.spectacleBoard = buildFestivalBoard(state.day, state.cityIndex, state.roster);
     }
@@ -262,13 +267,13 @@ function gainExperience(fighter, amount) {
 function itemBonusSummary(item) {
     const parts = [];
     if (item.bonus.strength) {
-        parts.push(`+${item.bonus.strength} STR`);
+        parts.push(`+${item.bonus.strength} ATHLETICISM`);
     }
     if (item.bonus.defense) {
-        parts.push(`+${item.bonus.defense} DEF`);
+        parts.push(`+${item.bonus.defense} THEATRICS`);
     }
     if (item.bonus.hp) {
-        parts.push(`+${item.bonus.hp} HP`);
+        parts.push(`+${item.bonus.hp} CONSTITUTION`);
     }
     if (item.bonus.fame) {
         parts.push(`+${item.bonus.fame} FAME`);
@@ -332,6 +337,7 @@ function buyItem(itemId, fighterId) {
 
     state.gold -= item.cost;
     state.armoryStock.splice(itemIndex, 1);
+    state.armoryOwned.push(item);
     const fighter = state.roster.find((entry) => entry.id === fighterId && entry.alive);
     if (!fighter) {
         addLog(`You purchase ${item.name}, but no fighter was selected to receive it.`);
@@ -344,6 +350,18 @@ function buyItem(itemId, fighterId) {
     fighter.hp = Math.min(fighter.hp + (item.bonus.hp || 0), fighterTotalMaxHp(fighter));
     addLog(`${fighter.name} receives ${item.name}.`);
     refreshMarkets(false);
+}
+
+function openArmoryShop() {
+    state.armoryShopOpen = true;
+}
+
+function closeArmoryShop() {
+    state.armoryShopOpen = false;
+}
+
+function closeSpectacleResult() {
+    state.spectacleResultOpen = false;
 }
 
 function upgradeFacility(key) {
@@ -428,6 +446,14 @@ function processTrainingQueue() {
     aliveFighters.forEach((fighter) => {
         const training = fighter.training || { focus: "hp", progress: 0 };
         training.progress += budget.pointsPerDay;
+
+        if (fighter.injury && fighter.injury.recoveryDays > 0) {
+            fighter.injury.recoveryDays -= 1;
+            if (fighter.injury.recoveryDays === 0) {
+                fighter.injury = null;
+                addLog(`${fighter.name} has recovered from their injury.`);
+            }
+        }
 
         while (training.progress >= budget.daysPerStat) {
             training.progress -= budget.daysPerStat;
@@ -520,6 +546,7 @@ function resolveSpectacleOutcome(spectacle, selected) {
     const xpGain = Math.max(4, Math.round((spectacle.baseFame + rivalPower) / Math.max(1, selected.length)) + (win ? 4 : 2));
     const medicusBonus = state.facilities.medicus;
     let casualtyMessage = null;
+    const injuries = [];
 
     selected.forEach((fighter) => {
         gainExperience(fighter, xpGain + state.facilities.trainingYard * 2);
@@ -536,6 +563,15 @@ function resolveSpectacleOutcome(spectacle, selected) {
         const wound = win ? randomBetween(1, 2 + spectacle.risk * 6) : randomBetween(2, 5 + spectacle.risk * 8);
         const reducedWound = Math.max(0, wound - medicusBonus);
         fighter.hp = Math.max(1, fighter.hp - reducedWound);
+        if (reducedWound > 0) {
+            const recoveryDays = Math.max(1, Math.ceil(reducedWound / 2));
+            fighter.injury = {
+                description: reducedWound >= 4 ? "a serious wound" : "bruising and cuts",
+                recoveryDays,
+                permanent: false
+            };
+            injuries.push({ fighter: fighter.name, description: fighter.injury.description, recoveryDays, permanent: false });
+        }
     });
 
     if (spectacle.toTheDeath) {
@@ -580,7 +616,12 @@ function resolveSpectacleOutcome(spectacle, selected) {
         goldGain,
         fameGain,
         summary: messages.join(" "),
-        messages
+        messages,
+        injuries,
+        opponents: spectacle.opponents.map((opponent) => ({ name: opponent.name, title: opponent.title })),
+        battleDescription: win
+            ? "Your gladiators controlled the pace, broke the opposing line, and carried the crowd with them."
+            : "The rival troupe seized the rhythm early, forcing your gladiators into a hard and costly retreat.",
     };
 }
 
@@ -614,8 +655,12 @@ function resolvePendingSpectacle() {
         summary: outcome.summary,
         messages: outcome.messages,
         goldGain: outcome.goldGain,
-        fameGain: outcome.fameGain
+        fameGain: outcome.fameGain,
+        opponents: outcome.opponents,
+        battleDescription: outcome.battleDescription,
+        injuries: outcome.injuries
     };
+    state.spectacleResultOpen = true;
     outcome.messages.forEach((message) => addLog(message));
     state.selectedFighterIds.clear();
     return true;
@@ -710,6 +755,9 @@ export {
     setTrainingBudget,
     hireRecruit,
     buyItem,
+    openArmoryShop,
+    closeArmoryShop,
+    closeSpectacleResult,
     upgradeFacility,
     travelToNextCity,
     listSelectedFighters,

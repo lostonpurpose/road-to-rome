@@ -8,6 +8,9 @@ import {
     queueSpectacle,
     openSpectacleBooking,
     closeSpectacleBooking,
+    openArmoryShop,
+    closeArmoryShop,
+    closeSpectacleResult,
     refreshMarkets,
     state,
     setActiveView,
@@ -62,6 +65,15 @@ app.addEventListener("click", (event) => {
         }
     } else if (action === "spectacle-book-cancel") {
         closeSpectacleBooking();
+        render();
+    } else if (action === "spectacle-result-close") {
+        closeSpectacleResult();
+        render();
+    } else if (action === "armory-shop-open") {
+        openArmoryShop();
+        render();
+    } else if (action === "armory-shop-close") {
+        closeArmoryShop();
         render();
     } else if (action === "spectacle-send") {
         resolvePendingSpectacle();

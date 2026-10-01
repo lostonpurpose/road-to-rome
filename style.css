@@ -176,6 +176,56 @@ body {
     padding-right: 4px;
 }
 
+.result-hero {
+    display: grid;
+    gap: 8px;
+    padding: 18px;
+    border: 1px solid rgba(255, 224, 168, 0.18);
+    border-radius: 16px;
+    background: rgba(17, 11, 8, 0.42);
+}
+
+.result-hero strong {
+    font-size: 1.35rem;
+    letter-spacing: 0.12em;
+}
+
+.result-hero.win strong {
+    color: #f6d27f;
+}
+
+.result-hero.loss strong {
+    color: #e39a72;
+}
+
+.result-section {
+    display: grid;
+    gap: 10px;
+}
+
+.result-section h4 {
+    margin: 0;
+}
+
+.injury-list {
+    display: grid;
+    gap: 8px;
+}
+
+.armory-owned-list {
+    min-height: 42px;
+    align-content: start;
+}
+
+.armory-shop-action {
+    margin-top: 18px;
+}
+
+.armory-shop-panel {
+    min-height: 0;
+    max-height: calc(100vh - 40px);
+}
+
 @media (max-width: 760px) {
     .spectacle-panel-grid {
         grid-template-columns: 1fr;

@@ -44,8 +44,8 @@ export const festivalDefinitions = [
     },
     {
         key: "lemuria",
-        monthIndex: 4,
-        dayOfMonth: 9,
+        monthIndex: 1,
+        dayOfMonth: 20,
         title: "Lemuria Games",
         sponsor: "the wardens of the household dead",
         venueKind: "night rite",
@@ -62,8 +62,8 @@ export const festivalDefinitions = [
     },
     {
         key: "augustalia",
-        monthIndex: 7,
-        dayOfMonth: 12,
+        monthIndex: 2,
+        dayOfMonth: 5,
         title: "Augustalia",
         sponsor: "the local magistrates",
         venueKind: "public procession",
@@ -80,8 +80,8 @@ export const festivalDefinitions = [
     },
     {
         key: "ludi-romani",
-        monthIndex: 8,
-        dayOfMonth: 4,
+        monthIndex: 2,
+        dayOfMonth: 12,
         title: "Ludi Romani",
         sponsor: "the aediles",
         venueKind: "public games",
@@ -98,8 +98,8 @@ export const festivalDefinitions = [
     },
     {
         key: "saturnalia",
-        monthIndex: 11,
-        dayOfMonth: 17,
+        monthIndex: 2,
+        dayOfMonth: 19,
         title: "Saturnalia Games",
         sponsor: "a merchant guild",
         venueKind: "holiday feast",

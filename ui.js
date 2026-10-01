@@ -62,7 +62,7 @@ function trainingBudgetMarkup() {
     return `
         <div class="status-callout pending">
             <strong>${budget.label} training budget active.</strong>
-            <span>All living gladiators train automatically every day. Low = ${trainingBudgetCatalog.low.daysPerStat} days per stat, Med = ${trainingBudgetCatalog.med.daysPerStat}, High = ${trainingBudgetCatalog.high.daysPerStat}.</span>
+            <span>All living gladiators train automatically every day. Cost: ${moneyFormat(budget.goldPerFighter)} per gladiator per day. Low = ${trainingBudgetCatalog.low.daysPerStat} days per stat, Med = ${trainingBudgetCatalog.med.daysPerStat}, High = ${trainingBudgetCatalog.high.daysPerStat}.</span>
         </div>
         <div class="budget-row">
             ${Object.entries(trainingBudgetCatalog).map(([key, entry]) => `
@@ -90,7 +90,7 @@ function calendarSummaryMarkup() {
 function fighterCard(fighter) {
     const training = fighter.training || { focus: "hp", progress: 0 };
     const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
-    const focusLabel = training.focus === "hp" ? "HP" : training.focus === "strength" ? "STR" : "DEF";
+    const focusLabel = training.focus === "hp" ? "Constitution" : training.focus === "strength" ? "Athleticism" : "Theatrics";
     const selectedForSpectacle = state.selectedFighterIds.has(fighter.id);
     const weaponGear = state.armoryStock.filter((item) => item.slot === "weapon" && state.gold >= item.cost);
     const armorGear = state.armoryStock.filter((item) => item.slot === "armor" && state.gold >= item.cost);
@@ -130,9 +130,9 @@ function fighterCard(fighter) {
                 <span class="badge gold">Lv ${fighter.level}</span>
             </div>
             <div class="stats-grid">
-                <div class="stat-box"><span class="label">HP</span><span class="value">${fighter.hp}/${fighterTotalMaxHp(fighter)}</span></div>
-                <div class="stat-box"><span class="label">STR</span><span class="value">${fighterTotalStrength(fighter)}</span></div>
-                <div class="stat-box"><span class="label">DEF</span><span class="value">${fighterTotalDefense(fighter)}</span></div>
+                <div class="stat-box"><span class="label">Constitution</span><span class="value">${fighter.hp}/${fighterTotalMaxHp(fighter)}</span></div>
+                <div class="stat-box"><span class="label">Athleticism</span><span class="value">${fighterTotalStrength(fighter)}</span></div>
+                <div class="stat-box"><span class="label">Theatrics</span><span class="value">${fighterTotalDefense(fighter)}</span></div>
             </div>
             <div class="badges">
                 <span class="badge info">XP ${fighter.exp}</span>
@@ -215,6 +215,58 @@ function spectacleBookingMarkup() {
     `;
 }
 
+function spectacleResultMarkupOverlay() {
+    const result = state.lastSpectacleResult;
+    if (!state.spectacleResultOpen || !result) {
+        return "";
+    }
+
+    return `
+        <div class="rename-overlay result-overlay">
+            <div class="panel spectacle-panel result-panel">
+                <div class="rename-panel-head">
+                    <div>
+                        <h3>${result.win ? "A Triumphant Spectacle" : "A Costly Spectacle"}</h3>
+                        <p class="small muted">${result.title} · ${result.dayLabel}</p>
+                    </div>
+                    <button class="secondary tiny" data-action="spectacle-result-close">Close</button>
+                </div>
+                <div class="result-hero ${result.win ? "win" : "loss"}">
+                    <strong>${result.win ? "VICTORY" : "DEFEAT"}</strong>
+                    <span>${result.battleDescription}</span>
+                </div>
+                <section class="result-section">
+                    <h4>Opposing troupe</h4>
+                    <div class="badges">${result.opponents.map((opponent) => `<span class="badge">${opponent.name}, ${opponent.title}</span>`).join("")}</div>
+                </section>
+                <section class="result-section">
+                    <h4>Aftermath</h4>
+                    <p>${result.summary}</p>
+                    <div class="injury-list">
+                        ${result.injuries.length
+                            ? result.injuries.map((injury) => `<div class="status-callout pending"><strong>${injury.fighter}: ${injury.description}</strong><span>${injury.permanent ? "Permanent injury." : `Expected recovery: ${injury.recoveryDays} day${injury.recoveryDays === 1 ? "" : "s"}.`}</span></div>`).join("")
+                            : `<div class="status-callout"><strong>No injuries recorded.</strong><span>The gladiators leave the arena shaken but sound.</span></div>`}
+                    </div>
+                </section>
+            </div>
+        </div>
+    `;
+}
+
+function ownedItemMarkup(items) {
+    const counts = new Map();
+    items.forEach((item) => {
+        const key = `${item.name}-${item.slot}`;
+        const entry = counts.get(key) || { item, count: 0 };
+        entry.count += 1;
+        counts.set(key, entry);
+    });
+
+    return [...counts.values()]
+        .map(({ item, count }) => `<span class="badge gold">${item.name} · ${item.slot} · x${count}</span>`)
+        .join("");
+}
+
 function recruitCard(recruit) {
     const affordable = state.gold >= recruit.cost;
     const full = state.roster.length >= stableCap();
@@ -228,9 +280,9 @@ function recruitCard(recruit) {
                 <span class="badge gold">${moneyFormat(recruit.cost)}</span>
             </div>
             <div class="badges">
-                <span class="badge">HP ${recruit.maxHp}</span>
-                <span class="badge">STR ${recruit.strength}</span>
-                <span class="badge">DEF ${recruit.defense}</span>
+                <span class="badge">Constitution ${recruit.maxHp}</span>
+                <span class="badge">Athleticism ${recruit.strength}</span>
+                <span class="badge">Theatrics ${recruit.defense}</span>
                 <span class="badge info">Power ${fighterPower(recruit)}</span>
             </div>
             <div class="market-actions">
@@ -462,17 +514,16 @@ function render() {
             <div class="screen-grid two-up">
                 <section class="panel">
                     <div class="panel-section">
-                        <h3>Armory Stock</h3>
-                        <div class="card-grid items">
-                            ${state.armoryStock.map(itemCard).join("")}
-                        </div>
+                        <h3>Owned Gear</h3>
+                        <div class="badges armory-owned-list">${state.armoryOwned.length ? ownedItemMarkup(state.armoryOwned) : '<span class="muted">No gear owned yet.</span>'}</div>
+                        <div class="card-actions armory-shop-action"><button data-action="armory-shop-open">Open armory shop</button></div>
                     </div>
                 </section>
 
                 <section class="panel">
                     <div class="panel-section compact">
-                        <h3>Loadout</h3>
-                        <p>Pick a target fighter from each item card to equip new gear. The armory screen is intentionally narrow so it is easier to read at a glance.</p>
+                        <h3>Equipment Ledger</h3>
+                        <p>Gear you buy is kept here. Open the shop to purchase new stock and assign it to a living gladiator.</p>
                     </div>
                 </section>
             </div>
@@ -551,6 +602,18 @@ function render() {
     ` : "";
 
     const spectacleOverlayMarkup = spectacleBookingMarkup();
+    const spectacleResultOverlayMarkup = spectacleResultMarkupOverlay();
+    const armoryShopOverlayMarkup = state.armoryShopOpen ? `
+        <div class="rename-overlay">
+            <div class="panel spectacle-panel armory-shop-panel">
+                <div class="rename-panel-head">
+                    <div><h3>Armory Shop</h3><p class="small muted">Available stock for purchase and assignment.</p></div>
+                    <button class="secondary tiny" data-action="armory-shop-close">Close</button>
+                </div>
+                <div class="card-grid items">${state.armoryStock.map(itemCard).join("") || '<p class="muted">The armory has no stock available.</p>'}</div>
+            </div>
+        </div>
+    ` : "";
 
     app.innerHTML = `
         <div class="shell">
@@ -602,6 +665,8 @@ function render() {
             </div>
             ${renameOverlayMarkup}
             ${spectacleOverlayMarkup}
+            ${spectacleResultOverlayMarkup}
+            ${armoryShopOverlayMarkup}
         </div>
     `;
 }
