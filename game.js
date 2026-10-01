@@ -235,8 +235,11 @@ function advanceDay() {
     const upgradesCompleted = processFacilityUpgradeQueue();
     const trainingCompleted = processTrainingQueue();
     const spectacleReady = markPendingSpectacleReady();
+    const spectacleResolved = state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day
+        ? resolvePendingSpectacle()
+        : false;
 
-    if (!upgradesCompleted && !trainingCompleted && !spectacleReady) {
+    if (!upgradesCompleted && !trainingCompleted && !spectacleReady && !spectacleResolved) {
         addLog(`The calendar turns to ${formatCalendarDate(currentCalendarDate())} in ${currentCity().name}.`);
     }
 

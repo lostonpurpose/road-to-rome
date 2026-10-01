@@ -62,7 +62,7 @@ function trainingBudgetMarkup() {
     return `
         <div class="status-callout pending">
             <strong>${budget.label} training budget active.</strong>
-            <span>All living gladiators train automatically every day. Cost: ${moneyFormat(budget.goldPerFighter)} per gladiator per day. Low = ${trainingBudgetCatalog.low.daysPerStat} days per stat, Med = ${trainingBudgetCatalog.med.daysPerStat}, High = ${trainingBudgetCatalog.high.daysPerStat}.</span>
+            <span>${moneyFormat(budget.goldPerFighter)} per glad per day.</span>
         </div>
         <div class="budget-row">
             ${Object.entries(trainingBudgetCatalog).map(([key, entry]) => `
@@ -91,7 +91,8 @@ function fighterCard(fighter) {
     const training = fighter.training || { focus: "hp", progress: 0 };
     const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
     const focusLabel = training.focus === "hp" ? "Constitution" : training.focus === "strength" ? "Athleticism" : "Theatrics";
-    const selectedForSpectacle = state.selectedFighterIds.has(fighter.id);
+    const assignedToPendingSpectacle = state.pendingSpectacle?.fighterIds?.includes(fighter.id) || false;
+    const selectedForSpectacle = assignedToPendingSpectacle || state.selectedFighterIds.has(fighter.id);
     const weaponGear = state.armoryStock.filter((item) => item.slot === "weapon" && state.gold >= item.cost);
     const armorGear = state.armoryStock.filter((item) => item.slot === "armor" && state.gold >= item.cost);
     const trinketGear = state.armoryStock.filter((item) => item.slot === "trinket" && state.gold >= item.cost);
@@ -144,8 +145,8 @@ function fighterCard(fighter) {
                 ${gearTags(fighter)}
             </div>
             <label class="checkbox-line spectacle-select-line">
-                <input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${selectedForSpectacle ? "checked" : ""}>
-                Select for next spectacle
+                <input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${selectedForSpectacle ? "checked" : ""} ${assignedToPendingSpectacle ? "disabled" : ""}>
+                ${assignedToPendingSpectacle ? "Assigned to booked spectacle" : "Select for next spectacle"}
             </label>
             <div class="status-callout pending">
                 <strong>Training ${focusLabel} automatically.</strong>
