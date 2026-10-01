@@ -62,7 +62,7 @@ function trainingBudgetMarkup() {
     return `
         <div class="status-callout pending">
             <strong>${budget.label} training budget active.</strong>
-            <span>${moneyFormat(budget.goldPerFighter)} per glad per day.</span>
+            <span>${moneyFormat(budget.goldPerFighter)} per gladiator per day.</span>
         </div>
         <div class="budget-row">
             ${Object.entries(trainingBudgetCatalog).map(([key, entry]) => `
@@ -137,10 +137,10 @@ function fighterCard(fighter) {
             </div>
             <div class="badges">
                 <span class="badge info">XP ${fighter.exp}</span>
-                <span class="badge gold">Fame ${fighter.fame}</span>
                 <span class="badge">Renown ${fighter.renown}</span>
                 <span class="badge">Power ${fighterPower(fighter)}</span>
             </div>
+            <div class="muted small">Power is derived from attributes, level, and gear. Fame is stable reputation; Renown is this gladiator's personal standing.</div>
             <div class="gear-line">
                 ${gearTags(fighter)}
             </div>
@@ -158,16 +158,18 @@ function fighterCard(fighter) {
 }
 
 function spectacleBookingMarkup() {
-    if (!state.spectacleBookingOpen || !state.spectacleBookingSpectacleId) {
+    const attendance = state.spectacleAttendanceOpen;
+    const spectacleId = attendance ? state.pendingSpectacle?.spectacleId : state.spectacleBookingSpectacleId;
+    if ((!state.spectacleBookingOpen && !attendance) || !spectacleId) {
         return "";
     }
 
-    const spectacle = state.spectacleBoard.find((entry) => entry.id === state.spectacleBookingSpectacleId);
+    const spectacle = state.spectacleBoard.find((entry) => entry.id === spectacleId);
     if (!spectacle) {
         return "";
     }
 
-    const selected = listSelectedFighters();
+    const selected = attendance ? listSelectedFighters(state.pendingSpectacle.fighterIds) : listSelectedFighters();
     const validSelection = selected.length >= spectacle.minFighters && selected.length <= spectacle.maxFighters;
     const eligibleFighters = state.roster.filter((fighter) => fighter.alive);
     const requestText = spectacle.minFighters === spectacle.maxFighters
@@ -182,7 +184,7 @@ function spectacleBookingMarkup() {
                         <h3>${spectacle.title}</h3>
                         <p class="small muted">${spectacle.sponsor} · ${spectacle.venue}</p>
                     </div>
-                    <button class="secondary tiny" data-action="spectacle-book-cancel">Close</button>
+                    <button class="secondary tiny" data-action="${attendance ? "spectacle-attendance-cancel" : "spectacle-book-cancel"}">Close</button>
                 </div>
                 <div class="spectacle-panel-grid">
                     <section class="spectacle-details">
@@ -192,22 +194,29 @@ function spectacleBookingMarkup() {
                             <span class="badge">+${spectacle.baseFame} fame</span>
                             <span class="badge">Requests ${requestText}</span>
                             <span class="badge ${spectacle.toTheDeath ? "danger" : "info"}">${spectacle.toTheDeath ? "To the death" : "Standard exhibition"}</span>
+                            ${spectacle.toTheDeath ? '<span class="badge danger">High risk · high reward</span>' : ""}
                         </div>
                         <p class="small">${spectacle.flavor}</p>
-                        <p class="small muted">The show starts simple at game start: no to-the-death booking yet. Pick the fighters here, then confirm the booking.</p>
+                        <div class="status-callout ${attendance ? "pending" : ""}">
+                            <strong>Promoter request</strong>
+                            <span>${spectacle.request}</span>
+                        </div>
+                        <p class="small muted">${attendance ? "The spectacle is ready. Review the requested show and send the booked gladiators." : "The show starts simple at game start: no to-the-death booking yet. Pick the fighters here, then confirm the booking."}</p>
                         <div class="status-callout pending">
-                            <strong>${validSelection ? `${selected.length} fighter${selected.length === 1 ? "" : "s"} selected.` : `Pick ${requestText} to book this show.`}</strong>
-                            <span>${spectacle.daysAway === 0 ? "This spectacle is for today." : `${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away.`}</span>
+                            <strong>${attendance ? `${selected.length} fighter${selected.length === 1 ? "" : "s"} ready to enter.` : (validSelection ? `${selected.length} fighter${selected.length === 1 ? "" : "s"} selected.` : `Pick ${requestText} to book this show.`)}</strong>
+                            <span>${attendance ? "The crowd is waiting." : (spectacle.daysAway === 0 ? "This spectacle is for today." : `${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away.`)}</span>
                         </div>
                     </section>
                     <section class="spectacle-selection">
-                        <h4>Choose fighters</h4>
+                        <h4>${attendance ? "Booked gladiators" : "Choose fighters"}</h4>
                         <div class="spectacle-fighter-list">
-                            ${eligibleFighters.map((fighter) => `<label class="checkbox-line"><input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${state.selectedFighterIds.has(fighter.id) ? "checked" : ""}> ${fighter.name} (Power: ${fighterPower(fighter)}, Renown: ${fighter.renown})</label>`).join("") || `<p class="small muted">No living fighters available.</p>`}
+                            ${(attendance ? selected : eligibleFighters).map((fighter) => `<label class="checkbox-line"><input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${selected.some((entry) => entry.id === fighter.id) ? "checked" : ""} ${attendance ? "disabled" : ""}> ${fighter.name} (Power: ${fighterPower(fighter)}, Renown: ${fighter.renown})</label>`).join("") || `<p class="small muted">No living fighters available.</p>`}
                         </div>
                         <div class="card-actions">
-                            <button data-action="spectacle-book-confirm" data-id="${spectacle.id}" ${validSelection ? "" : "disabled"}>Confirm booking</button>
-                            <button class="secondary" data-action="spectacle-book-cancel">Cancel</button>
+                            ${attendance
+                                ? `<button class="danger-button" data-action="spectacle-attendance-confirm">Send gladiators</button>`
+                                : `<button data-action="spectacle-book-confirm" data-id="${spectacle.id}" ${validSelection ? "" : "disabled"}>Confirm booking</button>`}
+                            <button class="secondary" data-action="${attendance ? "spectacle-attendance-cancel" : "spectacle-book-cancel"}">${attendance ? "Wait" : "Cancel"}</button>
                         </div>
                     </section>
                 </div>
@@ -428,9 +437,12 @@ function render() {
     const spectacleStatusText = nextFestival(state.day)
         ? (nextFestival(state.day).daysAway === 0 ? `Spectacle today: ${nextFestival(state.day).definition.title}` : `Next spectacle in ${nextFestival(state.day).daysAway} days`)
         : "No spectacle scheduled.";
-    const spectacleActionMarkup = state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day
-        ? `<button class="secondary spectacle-send-button" data-action="spectacle-send" data-id="${state.pendingSpectacle.spectacleId}">Send gladiators</button>`
-        : "";
+    const todaysSpectacle = state.spectacleBoard.find((spectacle) => spectacle.eventTurn === state.day);
+    const spectacleActionMarkup = !state.spectacleAttendanceOpen && state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day
+        ? `<button class="danger-button spectacle-send-button" data-action="spectacle-send" data-id="${state.pendingSpectacle.spectacleId}">Send gladiators</button>`
+        : !state.spectacleAttendanceOpen && todaysSpectacle
+            ? `<button class="danger-button spectacle-send-button" data-action="spectacle-open" data-id="${todaysSpectacle.id}">Send gladiators</button>`
+            : "";
 
     let screenMarkup = "";
     if (state.activeView === "hub") {
@@ -635,8 +647,8 @@ function render() {
                                         : "No festival dates found."}</span>
                                 </div>
                                 <div class="time-controls">
-                                    <button data-action="next-day">Next Day</button>
                                     ${spectacleActionMarkup}
+                                    <button data-action="next-day">Next Day</button>
                                 </div>
                             </div>
                         </div>

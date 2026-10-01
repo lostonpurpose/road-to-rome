@@ -68,6 +68,7 @@ const state = {
     spectacleBoard: [],
     spectacleBookingOpen: false,
     spectacleBookingSpectacleId: null,
+    spectacleAttendanceOpen: false,
     trainingQueue: [],
     facilityUpgradeQueue: null,
     pendingSpectacle: null,
@@ -235,11 +236,8 @@ function advanceDay() {
     const upgradesCompleted = processFacilityUpgradeQueue();
     const trainingCompleted = processTrainingQueue();
     const spectacleReady = markPendingSpectacleReady();
-    const spectacleResolved = state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day
-        ? resolvePendingSpectacle()
-        : false;
 
-    if (!upgradesCompleted && !trainingCompleted && !spectacleReady && !spectacleResolved) {
+    if (!upgradesCompleted && !trainingCompleted && !spectacleReady) {
         addLog(`The calendar turns to ${formatCalendarDate(currentCalendarDate())} in ${currentCity().name}.`);
     }
 
@@ -690,6 +688,19 @@ function closeSpectacleBooking() {
     state.spectacleBookingSpectacleId = null;
 }
 
+function openSpectacleAttendance() {
+    if (!state.pendingSpectacle || state.pendingSpectacle.resolveTurn > state.day) {
+        return false;
+    }
+
+    state.spectacleAttendanceOpen = true;
+    return true;
+}
+
+function closeSpectacleAttendance() {
+    state.spectacleAttendanceOpen = false;
+}
+
 function queueSpectacle(spectacleId) {
     if (state.pendingSpectacle) {
         addLog(`A spectacle is already booked for ${formatCalendarDate(state.pendingSpectacle.resolveTurn)}.`);
@@ -770,6 +781,8 @@ export {
     resolvePendingSpectacle,
     openSpectacleBooking,
     closeSpectacleBooking,
+    openSpectacleAttendance,
+    closeSpectacleAttendance,
     queueSpectacle,
     markPendingSpectacleReady,
     toggleSelection,

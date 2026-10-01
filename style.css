@@ -332,6 +332,17 @@ body {
     font-size: 0.82rem;
 }
 
+.danger-button {
+    border-color: rgba(240, 126, 91, 0.75);
+    background: linear-gradient(180deg, #9d3d2d, #6e2119);
+    color: #fff1e7;
+}
+
+.danger-button:hover,
+.danger-button:focus-visible {
+    background: linear-gradient(180deg, #b64c38, #82291e);
+}
+
 .budget-row {
     display: flex;
     flex-wrap: wrap;

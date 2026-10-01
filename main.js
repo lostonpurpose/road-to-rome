@@ -8,6 +8,8 @@ import {
     queueSpectacle,
     openSpectacleBooking,
     closeSpectacleBooking,
+    openSpectacleAttendance,
+    closeSpectacleAttendance,
     openArmoryShop,
     closeArmoryShop,
     closeSpectacleResult,
@@ -61,10 +63,20 @@ app.addEventListener("click", (event) => {
         render();
     } else if (action === "spectacle-book-confirm") {
         if (queueSpectacle(id)) {
+            if (state.pendingSpectacle?.resolveTurn <= state.day) {
+                openSpectacleAttendance();
+            }
             render();
         }
     } else if (action === "spectacle-book-cancel") {
         closeSpectacleBooking();
+        render();
+    } else if (action === "spectacle-attendance-confirm") {
+        closeSpectacleAttendance();
+        resolvePendingSpectacle();
+        render();
+    } else if (action === "spectacle-attendance-cancel") {
+        closeSpectacleAttendance();
         render();
     } else if (action === "spectacle-result-close") {
         closeSpectacleResult();
@@ -76,16 +88,20 @@ app.addEventListener("click", (event) => {
         closeArmoryShop();
         render();
     } else if (action === "spectacle-send") {
-        resolvePendingSpectacle();
+        openSpectacleAttendance();
         render();
     } else if (action === "spectacle-wait") {
         render();
     } else if (action === "view") {
         setActiveView(button.dataset.view);
         if (button.dataset.view === "promoters") {
-            const nextSpectacle = state.spectacleBoard[0];
-            if (nextSpectacle) {
-                openSpectacleBooking(nextSpectacle.id);
+            if (state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day) {
+                openSpectacleAttendance();
+            } else {
+                const nextSpectacle = state.spectacleBoard[0];
+                if (nextSpectacle) {
+                    openSpectacleBooking(nextSpectacle.id);
+                }
             }
         } else {
             closeSpectacleBooking();
