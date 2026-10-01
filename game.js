@@ -59,12 +59,15 @@ const state = {
     lanistaName: loadLanistaName(),
     lanistaRenameOpen: false,
     lanistaRenameDraft: "",
+    empireMapOpen: false,
+    empireMapZoom: 1,
     trainingBudget: "med",
     roster: buildStartRoster(),
     recruitMarket: [],
     armoryStock: [],
     armoryOwned: [],
     armoryShopOpen: false,
+    armoryShopFighterId: null,
     spectacleBoard: [],
     spectacleBookingOpen: false,
     spectacleBookingSpectacleId: null,
@@ -162,6 +165,18 @@ function openLanistaRename() {
 function cancelLanistaRename() {
     state.lanistaRenameOpen = false;
     state.lanistaRenameDraft = "";
+}
+
+function openEmpireMap() {
+    state.empireMapOpen = true;
+}
+
+function closeEmpireMap() {
+    state.empireMapOpen = false;
+}
+
+function setEmpireMapZoom(zoom) {
+    state.empireMapZoom = Math.max(1, Math.min(2.5, zoom));
 }
 
 function updateLanistaRenameDraft(value) {
@@ -353,12 +368,14 @@ function buyItem(itemId, fighterId) {
     refreshMarkets(false);
 }
 
-function openArmoryShop() {
+function openArmoryShop(fighterId = null) {
     state.armoryShopOpen = true;
+    state.armoryShopFighterId = fighterId;
 }
 
 function closeArmoryShop() {
     state.armoryShopOpen = false;
+    state.armoryShopFighterId = null;
 }
 
 function closeSpectacleResult() {
@@ -756,6 +773,9 @@ export {
     setLanistaName,
     openLanistaRename,
     cancelLanistaRename,
+    openEmpireMap,
+    closeEmpireMap,
+    setEmpireMapZoom,
     updateLanistaRenameDraft,
     confirmLanistaRename,
     bookedSpectacle,

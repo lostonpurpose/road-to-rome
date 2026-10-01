@@ -51,9 +51,6 @@ function gearTags(fighter) {
             tags.push(`<span class="badge">${item.name}</span>`);
         }
     });
-    if (tags.length === 0) {
-        tags.push('<span class="badge">No gear equipped</span>');
-    }
     return tags.join("");
 }
 
@@ -93,40 +90,17 @@ function fighterCard(fighter) {
     const focusLabel = training.focus === "hp" ? "Constitution" : training.focus === "strength" ? "Athleticism" : "Theatrics";
     const assignedToPendingSpectacle = state.pendingSpectacle?.fighterIds?.includes(fighter.id) || false;
     const selectedForSpectacle = assignedToPendingSpectacle || state.selectedFighterIds.has(fighter.id);
-    const weaponGear = state.armoryStock.filter((item) => item.slot === "weapon" && state.gold >= item.cost);
-    const armorGear = state.armoryStock.filter((item) => item.slot === "armor" && state.gold >= item.cost);
-    const trinketGear = state.armoryStock.filter((item) => item.slot === "trinket" && state.gold >= item.cost);
-    
-    const gearSection = weaponGear.length > 0 || armorGear.length > 0 || trinketGear.length > 0 ? `
-        <div class="gear-section">
-            <div class="muted small" style="margin-bottom: 8px;">Equip gear:</div>
-            ${weaponGear.length > 0 ? `
-                <div class="gear-slot">
-                    <span class="label small">Weapon:</span>
-                    ${weaponGear.map((item) => `<button class="secondary tiny" data-action="buy-item" data-id="${item.id}" data-fighter-id="${fighter.id}">${item.name} (${moneyFormat(item.cost)})</button>`).join(" ")}
-                </div>
-            ` : ""}
-            ${armorGear.length > 0 ? `
-                <div class="gear-slot">
-                    <span class="label small">Armor:</span>
-                    ${armorGear.map((item) => `<button class="secondary tiny" data-action="buy-item" data-id="${item.id}" data-fighter-id="${fighter.id}">${item.name} (${moneyFormat(item.cost)})</button>`).join(" ")}
-                </div>
-            ` : ""}
-            ${trinketGear.length > 0 ? `
-                <div class="gear-slot">
-                    <span class="label small">Trinket:</span>
-                    ${trinketGear.map((item) => `<button class="secondary tiny" data-action="buy-item" data-id="${item.id}" data-fighter-id="${fighter.id}">${item.name} (${moneyFormat(item.cost)})</button>`).join(" ")}
-                </div>
-            ` : ""}
-        </div>
-    ` : "";
-
     return `
         <article class="fighter-card">
             <div class="fighter-top">
                 <div>
                     <h3 class="fighter-name">${fighter.name}</h3>
                     <div class="muted">${fighter.title} · ${fighter.style} · ${fighter.origin}</div>
+                    <div class="badges fighter-summary-badges">
+                        <span class="badge info">XP ${fighter.exp}</span>
+                        <span class="badge">Renown ${fighter.renown}</span>
+                        <span class="badge">Power ${fighterPower(fighter)}</span>
+                    </div>
                 </div>
                 <span class="badge gold">Lv ${fighter.level}</span>
             </div>
@@ -135,15 +109,11 @@ function fighterCard(fighter) {
                 <div class="stat-box"><span class="label">Athleticism</span><span class="value">${fighterTotalStrength(fighter)}</span></div>
                 <div class="stat-box"><span class="label">Theatrics</span><span class="value">${fighterTotalDefense(fighter)}</span></div>
             </div>
-            <div class="badges">
-                <span class="badge info">XP ${fighter.exp}</span>
-                <span class="badge">Renown ${fighter.renown}</span>
-                <span class="badge">Power ${fighterPower(fighter)}</span>
-            </div>
             <div class="muted small">Power is derived from attributes, level, and gear. Fame is stable reputation; Renown is this gladiator's personal standing.</div>
             <div class="gear-line">
                 ${gearTags(fighter)}
             </div>
+            <button class="equipment-button" data-action="armory-shop-open" data-fighter-id="${fighter.id}">Equipment</button>
             <label class="checkbox-line spectacle-select-line">
                 <input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${selectedForSpectacle ? "checked" : ""} ${assignedToPendingSpectacle ? "disabled" : ""}>
                 ${assignedToPendingSpectacle ? "Assigned to booked spectacle" : "Select for next spectacle"}
@@ -152,7 +122,6 @@ function fighterCard(fighter) {
                 <strong>Training ${focusLabel} automatically.</strong>
                 <span>${training.progress}/${budget.daysPerStat} training points toward the next ${focusLabel} gain.</span>
             </div>
-            ${gearSection}
         </article>
     `;
 }
@@ -277,6 +246,66 @@ function ownedItemMarkup(items) {
         .join("");
 }
 
+function empireMapMarkup() {
+    if (!state.empireMapOpen) {
+        return "";
+    }
+
+    const mapPositions = [
+        { left: 28, top: 65 },
+        { left: 31, top: 62 },
+        { left: 35, top: 57 },
+        { left: 40, top: 51 },
+        { left: 47, top: 42 },
+        { left: 54, top: 47 }
+    ];
+    const nextCity = cityIndexToNextLabel();
+    const travelCost = nextCity ? 18 + nextCity.prestige * 12 : 0;
+
+    return `
+        <div class="rename-overlay empire-overlay">
+            <div class="panel empire-panel">
+                <div class="rename-panel-head">
+                    <div>
+                        <h3>View Empire</h3>
+                        <p class="small muted">The road from provincial bloodsport to the capital.</p>
+                    </div>
+                    <button class="secondary tiny" data-action="empire-map-close">Close</button>
+                </div>
+                <div class="empire-map-controls">
+                    <button class="secondary tiny" data-action="empire-map-zoom-out" ${state.empireMapZoom <= 1 ? "disabled" : ""} aria-label="Zoom out">−</button>
+                    <span class="muted small">${Math.round(state.empireMapZoom * 100)}%</span>
+                    <button class="secondary tiny" data-action="empire-map-zoom-in" ${state.empireMapZoom >= 2.5 ? "disabled" : ""} aria-label="Zoom in">+</button>
+                    <button class="secondary tiny" data-action="empire-map-zoom-reset">Reset</button>
+                </div>
+                <div class="empire-map-wrap">
+                    <div class="empire-map-canvas" style="width: ${state.empireMapZoom * 100}%;">
+                        <img class="empire-map-image" src="images/Maps-roman-empire-peak-150AD.jpg" alt="Map of the Roman Empire around 150 AD">
+                        <div class="empire-markers">
+                        ${cityChain.map((city, index) => ({ city, index })).filter(({ index }) => index === state.cityIndex).map(({ city, index }) => {
+                            const isCurrent = index === state.cityIndex;
+                            const isNext = index === state.cityIndex + 1;
+                            const unlocked = state.fame >= city.fameRequired;
+                            const canMove = isNext && unlocked && !state.pendingSpectacle && state.gold >= travelCost;
+                            const status = isCurrent ? "current" : canMove ? "available" : unlocked ? "unlocked" : "locked";
+                            const markerLabel = isCurrent ? "Current" : canMove ? "Travel" : unlocked ? "Reached" : `Need ${city.fameRequired} fame`;
+                            return `<div class="empire-marker ${status}" style="left: ${mapPositions[index].left}%; top: ${mapPositions[index].top}%">
+                                <button class="empire-marker-button" ${canMove ? `data-action="travel" title="Travel to ${city.name}"` : "disabled"}>${city.name}</button>
+                                <span>${markerLabel}</span>
+                            </div>`;
+                        }).join("")}
+                        </div>
+                    </div>
+                </div>
+                <div class="status-callout pending empire-map-legend">
+                    <strong>${currentCity().name}</strong>
+                    <span>Gold: ${moneyFormat(state.gold)} · Fame: ${state.fame}${nextCity ? ` · Next market: ${nextCity.name} at ${nextCity.fameRequired} fame` : ""}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function recruitCard(recruit) {
     const affordable = state.gold >= recruit.cost;
     const full = state.roster.length >= stableCap();
@@ -302,11 +331,11 @@ function recruitCard(recruit) {
     `;
 }
 
-function itemCard(item) {
+function itemCard(item, targetFighterId = "") {
     const affordable = state.gold >= item.cost;
     const targetOptions = state.roster
         .filter((fighter) => fighter.alive)
-        .map((fighter) => `<option value="${fighter.id}">${fighter.name}</option>`)
+        .map((fighter) => `<option value="${fighter.id}" ${fighter.id === targetFighterId ? "selected" : ""}>${fighter.name}</option>`)
         .join("");
     return `
         <article class="market-card">
@@ -597,7 +626,7 @@ function render() {
                     <section class="rename-options">
                         <h4>Options</h4>
                         <button class="secondary active" type="button">Rename lanista</button>
-                        <button class="secondary" type="button" disabled>Future option</button>
+                        <button class="secondary" data-action="empire-map-open">View Empire</button>
                         <button class="secondary" type="button" disabled>Future option</button>
                     </section>
                     <section class="rename-editor">
@@ -623,10 +652,11 @@ function render() {
                     <div><h3>Armory Shop</h3><p class="small muted">Available stock for purchase and assignment.</p></div>
                     <button class="secondary tiny" data-action="armory-shop-close">Close</button>
                 </div>
-                <div class="card-grid items">${state.armoryStock.map(itemCard).join("") || '<p class="muted">The armory has no stock available.</p>'}</div>
+                <div class="card-grid items">${state.armoryStock.map((item) => itemCard(item, state.armoryShopFighterId || "")).join("") || '<p class="muted">The armory has no stock available.</p>'}</div>
             </div>
         </div>
     ` : "";
+    const empireMapOverlayMarkup = empireMapMarkup();
 
     app.innerHTML = `
         <div class="shell">
@@ -680,6 +710,7 @@ function render() {
             ${spectacleOverlayMarkup}
             ${spectacleResultOverlayMarkup}
             ${armoryShopOverlayMarkup}
+            ${empireMapOverlayMarkup}
         </div>
     `;
 }

@@ -19,6 +19,9 @@ import {
     setLanistaName,
     openLanistaRename,
     cancelLanistaRename,
+    openEmpireMap,
+    closeEmpireMap,
+    setEmpireMapZoom,
     confirmLanistaRename,
     updateLanistaRenameDraft,
     setTrainingBudget,
@@ -82,7 +85,7 @@ app.addEventListener("click", (event) => {
         closeSpectacleResult();
         render();
     } else if (action === "armory-shop-open") {
-        openArmoryShop();
+        openArmoryShop(button.dataset.fighterId || null);
         render();
     } else if (action === "armory-shop-close") {
         closeArmoryShop();
@@ -119,6 +122,22 @@ app.addEventListener("click", (event) => {
         }
     } else if (action === "rename-lanista-cancel") {
         cancelLanistaRename();
+        render();
+    } else if (action === "empire-map-open") {
+        cancelLanistaRename();
+        openEmpireMap();
+        render();
+    } else if (action === "empire-map-close") {
+        closeEmpireMap();
+        render();
+    } else if (action === "empire-map-zoom-in") {
+        setEmpireMapZoom(state.empireMapZoom + 0.25);
+        render();
+    } else if (action === "empire-map-zoom-out") {
+        setEmpireMapZoom(state.empireMapZoom - 0.25);
+        render();
+    } else if (action === "empire-map-zoom-reset") {
+        setEmpireMapZoom(1);
         render();
     } else if (action === "set-training-budget") {
         setTrainingBudget(button.dataset.budget);

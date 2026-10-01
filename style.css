@@ -226,6 +226,109 @@ body {
     max-height: calc(100vh - 40px);
 }
 
+.empire-panel {
+    width: min(94vw, 1080px);
+    min-height: min(78vh, 720px);
+    max-height: calc(100vh - 40px);
+    overflow: auto;
+}
+
+.empire-map-wrap {
+    position: relative;
+    max-height: min(58vh, 520px);
+    overflow: auto;
+    border: 1px solid rgba(255, 224, 168, 0.2);
+    background: #c8a978;
+}
+
+.empire-map-canvas {
+    position: relative;
+    min-width: 100%;
+}
+
+.empire-map-image {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.empire-map-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.empire-markers {
+    position: absolute;
+    inset: 0;
+}
+
+.empire-marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: grid;
+    gap: 3px;
+    justify-items: center;
+    text-align: center;
+}
+
+.empire-marker-button {
+    min-width: 0;
+    padding: 5px 8px;
+    border: 1px solid rgba(39, 24, 14, 0.7);
+    border-radius: 999px;
+    background: #f2d28a;
+    color: #2b1a10;
+    font-size: 0.68rem;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+.empire-marker.current .empire-marker-button {
+    background: #fff2c9;
+    outline: 3px solid rgba(255, 226, 118, 0.7);
+}
+
+.empire-marker.available .empire-marker-button {
+    background: #d8784f;
+    color: #fff7ec;
+    cursor: pointer;
+}
+
+.empire-marker.locked .empire-marker-button {
+    background: rgba(46, 30, 20, 0.78);
+    color: #d8c3a0;
+    opacity: 0.78;
+}
+
+.empire-marker span {
+    padding: 2px 5px;
+    border-radius: 5px;
+    background: rgba(29, 18, 12, 0.75);
+    color: #fff1d5;
+    font-size: 0.58rem;
+    white-space: nowrap;
+}
+
+.empire-map-legend {
+    margin-top: 0;
+}
+
+.equipment-button {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 12px;
+    font-size: 0.95rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.fighter-summary-badges {
+    margin-top: 10px;
+}
+
 @media (max-width: 760px) {
     .spectacle-panel-grid {
         grid-template-columns: 1fr;
