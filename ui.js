@@ -12,6 +12,7 @@ import {
     fighterTotalStrength,
     itemBonusSummary,
     moneyFormat,
+    gladiatorPaths,
     trainingBudgetCatalog,
     viewLabels
 } from "./game-data.js";
@@ -90,6 +91,21 @@ function fighterCard(fighter) {
     const focusLabel = training.focus === "hp" ? "Constitution" : training.focus === "strength" ? "Athleticism" : "Theatrics";
     const assignedToPendingSpectacle = state.pendingSpectacle?.fighterIds?.includes(fighter.id) || false;
     const selectedForSpectacle = assignedToPendingSpectacle || state.selectedFighterIds.has(fighter.id);
+    const path = fighter.path ? gladiatorPaths[fighter.path] : null;
+    const pathChoices = fighter.level >= 3 && !path ? `
+        <div class="fighter-path-panel">
+            <strong>Choose a gladiator path</strong>
+            <span class="muted small">This is a permanent specialization. It helps satisfy promoter requests and changes how this gladiator fights.</span>
+            <div class="fighter-path-list">
+                ${Object.entries(gladiatorPaths).map(([key, option]) => `
+                    <button class="secondary path-choice" data-action="specialize-fighter" data-fighter-id="${fighter.id}" data-path="${key}" title="${option.description}">
+                        <strong>${option.name}</strong>
+                        <span>${option.tradeoffs}</span>
+                    </button>
+                `).join("")}
+            </div>
+        </div>
+    ` : path ? `<div class="status-callout path-callout"><strong>${path.name}</strong><span>${path.description}</span></div>` : "";
     return `
         <article class="fighter-card">
             <div class="fighter-top">
@@ -122,6 +138,7 @@ function fighterCard(fighter) {
                 <strong>Training ${focusLabel} automatically.</strong>
                 <span>${training.progress}/${budget.daysPerStat} training points toward the next ${focusLabel} gain.</span>
             </div>
+            ${pathChoices}
         </article>
     `;
 }
@@ -169,6 +186,7 @@ function spectacleBookingMarkup() {
                         <div class="status-callout ${attendance ? "pending" : ""}">
                             <strong>Promoter request</strong>
                             <span>${spectacle.request}</span>
+                            ${spectacle.requestPath ? `<span>Preferred path: ${gladiatorPaths[spectacle.requestPath]?.name || spectacle.requestPath}.</span>` : ""}
                         </div>
                         <p class="small muted">${attendance ? "The spectacle is ready. Review the requested show and send the booked gladiators." : "The show starts simple at game start: no to-the-death booking yet. Pick the fighters here, then confirm the booking."}</p>
                         <div class="status-callout pending">
@@ -331,12 +349,8 @@ function recruitCard(recruit) {
     `;
 }
 
-function itemCard(item, targetFighterId = "") {
+function itemCard(item) {
     const affordable = state.gold >= item.cost;
-    const targetOptions = state.roster
-        .filter((fighter) => fighter.alive)
-        .map((fighter) => `<option value="${fighter.id}" ${fighter.id === targetFighterId ? "selected" : ""}>${fighter.name}</option>`)
-        .join("");
     return `
         <article class="market-card">
             <div class="card-head">
@@ -353,14 +367,8 @@ function itemCard(item, targetFighterId = "") {
                     .map((entry) => `<span class="badge">${entry}</span>`)
                     .join("")}
             </div>
-            <label class="market-target">
-                <span class="muted small">Give to</span>
-                <select data-item-target="${item.id}">
-                    ${targetOptions || '<option value="">No fighters available</option>'}
-                </select>
-            </label>
             <div class="market-actions">
-                <button data-action="buy-item" data-id="${item.id}" ${affordable && targetOptions ? "" : "disabled"}>Buy & equip</button>
+                <button data-action="buy-item" data-id="${item.id}" ${affordable ? "" : "disabled"}>Buy for inventory</button>
             </div>
         </article>
     `;
@@ -553,19 +561,22 @@ function render() {
         `;
     } else if (state.activeView === "armory") {
         screenMarkup = `
-            <div class="screen-grid two-up">
-                <section class="panel">
+            <div class="armory-screen">
+                <section class="panel armory-stock-panel">
                     <div class="panel-section">
-                        <h3>Owned Gear</h3>
+                        <h3>Current Stock</h3>
+                        <p class="small muted">Gear currently owned by the stable.</p>
                         <div class="badges armory-owned-list">${state.armoryOwned.length ? ownedItemMarkup(state.armoryOwned) : '<span class="muted">No gear owned yet.</span>'}</div>
-                        <div class="card-actions armory-shop-action"><button data-action="armory-shop-open">Open armory shop</button></div>
                     </div>
                 </section>
 
-                <section class="panel">
-                    <div class="panel-section compact">
-                        <h3>Equipment Ledger</h3>
-                        <p>Gear you buy is kept here. Open the shop to purchase new stock and assign it to a living gladiator.</p>
+                <section class="panel armory-shopping-panel">
+                    <div class="panel-section">
+                        <h3>Shopping Options</h3>
+                        <p class="small muted">Purchase gear for the stable inventory. Equipping it will be a separate action.</p>
+                        <div class="card-grid items">
+                            ${state.armoryStock.map(itemCard).join("") || '<p class="muted">The armory has no stock available.</p>'}
+                        </div>
                     </div>
                 </section>
             </div>
@@ -649,10 +660,10 @@ function render() {
         <div class="rename-overlay">
             <div class="panel spectacle-panel armory-shop-panel">
                 <div class="rename-panel-head">
-                    <div><h3>Armory Shop</h3><p class="small muted">Available stock for purchase and assignment.</p></div>
+                    <div><h3>Armory Shop</h3><p class="small muted">Available gear for the stable inventory.</p></div>
                     <button class="secondary tiny" data-action="armory-shop-close">Close</button>
                 </div>
-                <div class="card-grid items">${state.armoryStock.map((item) => itemCard(item, state.armoryShopFighterId || "")).join("") || '<p class="muted">The armory has no stock available.</p>'}</div>
+                <div class="card-grid items">${state.armoryStock.map(itemCard).join("") || '<p class="muted">The armory has no stock available.</p>'}</div>
             </div>
         </div>
     ` : "";
@@ -664,7 +675,7 @@ function render() {
                 <div class="hero-banner-inner">
                     <div class="hero-copy">
                         <h1>${state.lanistaName}</h1>
-                        <p class="subtitle">You are the lanista of a growing gladiator stable in a backwater Spanish city. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
+                        <p class="subtitle">You are the lanista of a gladiator stable in a backwater Spanish city. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
                         <div class="hero-bottom-row">
                             <div class="hero-options">
                                 <div class="view-tabs">${navigation}</div>

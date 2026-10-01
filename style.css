@@ -217,6 +217,16 @@ body {
     align-content: start;
 }
 
+.armory-screen {
+    display: grid;
+    gap: 18px;
+}
+
+.armory-stock-panel,
+.armory-shopping-panel {
+    width: 100%;
+}
+
 .armory-shop-action {
     margin-top: 18px;
 }
@@ -327,6 +337,44 @@ body {
 
 .fighter-summary-badges {
     margin-top: 10px;
+}
+
+.fighter-path-panel {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid rgba(246, 210, 127, 0.3);
+    border-radius: 12px;
+    background: rgba(67, 34, 17, 0.42);
+}
+
+.fighter-path-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.path-choice {
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+    text-align: left;
+}
+
+.path-choice span {
+    color: #dfc38d;
+    font-size: 0.72rem;
+}
+
+.path-callout {
+    margin-top: 14px;
+}
+
+@media (max-width: 560px) {
+    .fighter-path-list {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 760px) {

@@ -17,6 +17,7 @@ import {
     randomBetween,
     randomFrom,
     trainingBudgetCatalog,
+    gladiatorPaths,
     styles,
     viewLabels
 } from "./game-data.js";
@@ -251,6 +252,9 @@ function advanceDay() {
     const upgradesCompleted = processFacilityUpgradeQueue();
     const trainingCompleted = processTrainingQueue();
     const spectacleReady = markPendingSpectacleReady();
+    if (state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day) {
+        state.spectacleAttendanceOpen = true;
+    }
 
     if (!upgradesCompleted && !trainingCompleted && !spectacleReady) {
         addLog(`The calendar turns to ${formatCalendarDate(currentCalendarDate())} in ${currentCity().name}.`);
@@ -278,6 +282,26 @@ function gainExperience(fighter, amount) {
     }
 
     return leveled;
+}
+
+function specializeFighter(fighterId, pathKey) {
+    const fighter = state.roster.find((entry) => entry.id === fighterId && entry.alive);
+    const path = gladiatorPaths[pathKey];
+    if (!fighter || !path || fighter.level < 3 || fighter.path) {
+        return false;
+    }
+
+    fighter.path = pathKey;
+    fighter.style = pathKey;
+    fighter.title = path.name;
+    fighter.maxHp = Math.max(1, fighter.maxHp + (path.bonuses.maxHp || 0));
+    fighter.hp = Math.min(fighter.maxHp, fighter.hp + Math.max(0, path.bonuses.maxHp || 0));
+    fighter.strength += path.bonuses.strength || 0;
+    fighter.defense += path.bonuses.defense || 0;
+    fighter.renown += path.bonuses.renown || 0;
+    addLog(`${fighter.name} takes the path of the ${path.name}.`);
+    refreshMarkets(false);
+    return true;
 }
 
 function itemBonusSummary(item) {
@@ -339,7 +363,7 @@ function hireRecruit(fighterId) {
 
 }
 
-function buyItem(itemId, fighterId) {
+function buyItem(itemId) {
     const itemIndex = state.armoryStock.findIndex((entry) => entry.id === itemId);
     if (itemIndex === -1) {
         return;
@@ -354,17 +378,7 @@ function buyItem(itemId, fighterId) {
     state.gold -= item.cost;
     state.armoryStock.splice(itemIndex, 1);
     state.armoryOwned.push(item);
-    const fighter = state.roster.find((entry) => entry.id === fighterId && entry.alive);
-    if (!fighter) {
-        addLog(`You purchase ${item.name}, but no fighter was selected to receive it.`);
-        refreshMarkets(false);
-        return;
-    }
-
-    fighter.gear = fighter.gear || {};
-    fighter.gear[item.slot] = item;
-    fighter.hp = Math.min(fighter.hp + (item.bonus.hp || 0), fighterTotalMaxHp(fighter));
-    addLog(`${fighter.name} receives ${item.name}.`);
+    addLog(`${item.name} is added to the armory inventory.`);
     refreshMarkets(false);
 }
 
@@ -541,7 +555,9 @@ function resolveSpectacleOutcome(spectacle, selected) {
     const rivalShow = rivalPower + randomBetween(0, Math.max(6, Math.floor(rivalPower * 0.32))) + spectacle.cityPrestige * 2;
     const win = ourShow >= rivalShow;
     const margin = Math.abs(ourShow - rivalShow);
-    const requestBonus = spectacle.requestedName && selected.some((fighter) => fighter.name === spectacle.requestedName) ? spectacle.requestBonus : 0;
+    const namedRequestBonus = spectacle.requestedName && selected.some((fighter) => fighter.name === spectacle.requestedName) ? spectacle.requestBonus : 0;
+    const pathRequestBonus = spectacle.requestPath && selected.some((fighter) => fighter.path === spectacle.requestPath) ? 12 : 0;
+    const requestBonus = namedRequestBonus + pathRequestBonus;
 
     let goldGain = Math.round(spectacle.baseGold + ourPower * 1.2 + rivalPower * 0.9 + requestBonus);
     if (win) {
@@ -619,6 +635,10 @@ function resolveSpectacleOutcome(spectacle, selected) {
 
     if (spectacle.requestedName && selected.some((fighter) => fighter.name === spectacle.requestedName)) {
         messages.push(`${spectacle.requestedName} was specifically requested and drew a richer purse.`);
+    }
+
+    if (spectacle.requestPath && selected.some((fighter) => fighter.path === spectacle.requestPath)) {
+        messages.push(`The promoter's ${spectacle.requestPath} request was fulfilled.`);
     }
 
     if (casualtyMessage) {
@@ -793,6 +813,7 @@ export {
     closeArmoryShop,
     closeSpectacleResult,
     upgradeFacility,
+    specializeFighter,
     travelToNextCity,
     listSelectedFighters,
     processFacilityUpgradeQueue,

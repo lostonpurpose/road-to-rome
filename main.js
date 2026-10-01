@@ -28,6 +28,7 @@ import {
     toggleSelection,
     travelToNextCity,
     upgradeFacility
+    , specializeFighter
 } from "./game.js";
 
 import { render } from "./ui.js";
@@ -46,14 +47,7 @@ app.addEventListener("click", (event) => {
         hireRecruit(id);
         render();
     } else if (action === "buy-item") {
-        const fighterId = button.dataset.fighterId || "";
-        if (fighterId) {
-            buyItem(id, fighterId);
-        } else {
-            const card = button.closest(".market-card");
-            const target = card ? card.querySelector(`select[data-item-target="${id}"]`) : null;
-            buyItem(id, target ? target.value : "");
-        }
+        buyItem(id);
         render();
     } else if (action === "upgrade") {
         upgradeFacility(id);
@@ -141,6 +135,9 @@ app.addEventListener("click", (event) => {
         render();
     } else if (action === "set-training-budget") {
         setTrainingBudget(button.dataset.budget);
+        render();
+    } else if (action === "specialize-fighter") {
+        specializeFighter(button.dataset.fighterId, button.dataset.path);
         render();
     }
 });

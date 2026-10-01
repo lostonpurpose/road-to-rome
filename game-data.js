@@ -141,6 +141,51 @@ const trainingBudgetCatalog = {
     }
 };
 
+const gladiatorPaths = {
+    murmillo: {
+        name: "Murmillo",
+        description: "A heavily armoured shield fighter built to grind down opponents in close combat.",
+        bonuses: { maxHp: 2, defense: 2, strength: 1 },
+        tradeoffs: "+Constitution, +Theatrics, +Athleticism"
+    },
+    bestiarius: {
+        name: "Bestiarius",
+        description: "A beast-fighter trained for dangerous, unpredictable spectacles and crowd drama.",
+        bonuses: { maxHp: 1, strength: 2, renown: 1 },
+        tradeoffs: "+Athleticism, +Renown, spectacle specialist"
+    },
+    retiarius: {
+        name: "Retiarius",
+        description: "A lightly armoured net-and-trident fighter who wins with reach, timing, and movement.",
+        bonuses: { strength: 2, defense: 1, maxHp: -1 },
+        tradeoffs: "+Athleticism, +Theatrics, -Constitution"
+    },
+    secutor: {
+        name: "Secutor",
+        description: "A relentless pursuer with smooth armour designed to close the distance safely.",
+        bonuses: { maxHp: 1, strength: 2, defense: 1 },
+        tradeoffs: "+Constitution, +Athleticism, +Theatrics"
+    },
+    thraex: {
+        name: "Thraex",
+        description: "A nimble small-shield fighter with a curved blade and punishing leg protection.",
+        bonuses: { strength: 1, defense: 2, renown: 1 },
+        tradeoffs: "+Theatrics, +Athleticism, +Renown"
+    },
+    hoplomachus: {
+        name: "Hoplomachus",
+        description: "A spear-and-small-shield specialist who opens fights at range before closing in.",
+        bonuses: { strength: 2, defense: 1, maxHp: 1 },
+        tradeoffs: "+Athleticism, +Constitution, +Theatrics"
+    },
+    provocator: {
+        name: "Provocator",
+        description: "A disciplined challenger protected by a breastplate and trained for measured duels.",
+        bonuses: { maxHp: 2, strength: 1, defense: 1 },
+        tradeoffs: "+Constitution, +Athleticism, +Theatrics"
+    }
+};
+
 const viewLabels = {
     hub: "Hub",
     barracks: "Barracks",
@@ -470,6 +515,7 @@ export {
     facilityCatalog,
     trainingBudgetCatalog,
     viewLabels,
+    gladiatorPaths,
     nextId,
     randomFrom,
     randomBetween,

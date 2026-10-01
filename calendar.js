@@ -40,6 +40,7 @@ export const festivalDefinitions = [
         maxFighters: 1,
         toTheDeath: false,
         request: "wants generic gladiators for the opening rounds",
+        requestPath: null,
         signUpWindow: 365,
         flavor: "A solemn rite for the dead. Wealthy families still pay to be remembered well."
     },
@@ -59,6 +60,7 @@ export const festivalDefinitions = [
         maxFighters: 2,
         toTheDeath: true,
         request: "is looking for experienced fighters for a long, drawn out bout",
+        requestPath: "bestiarius",
         signUpWindow: 365,
         flavor: "A superstitious night rite. The crowd wants a cleaner house and a louder bloodletting."
     },
@@ -78,6 +80,7 @@ export const festivalDefinitions = [
         maxFighters: 2,
         toTheDeath: false,
         request: "needs charismatic fighters for the middle rounds",
+        requestPath: "thraex",
         signUpWindow: 365,
         flavor: "A civic celebration meant to flatter officeholders and keep the city loyal."
     },
@@ -97,6 +100,7 @@ export const festivalDefinitions = [
         maxFighters: 3,
         toTheDeath: false,
         request: "is looking for experienced fighters for a long, drawn out bout",
+        requestPath: "retiarius",
         signUpWindow: 365,
         flavor: "The great public games. The city watches, and the politicians remember who impressed them."
     },
@@ -116,6 +120,7 @@ export const festivalDefinitions = [
         maxFighters: 3,
         toTheDeath: true,
         request: "the merchant guild wants blood to spill, so we need gladiators willing to fight in a to-the-death match",
+        requestPath: "provocator",
         signUpWindow: 365,
         flavor: "A feast-day show where luck, gifts, and a little death are all on the table."
     }
