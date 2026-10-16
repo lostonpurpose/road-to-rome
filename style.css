@@ -794,6 +794,7 @@ body {
     border: 1px solid rgba(255, 238, 197, 0.16);
     background: rgba(255, 248, 228, 0.05);
     padding: 12px;
+    min-width: 0;
 }
 
 .fighter-card.selected {
@@ -811,6 +812,23 @@ body {
     align-items: flex-start;
 }
 
+.card-head > div:first-child,
+.facility-head > div:first-child,
+.city-head > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.card-head > .badge,
+.facility-head > .badge,
+.city-head > .badge {
+    flex: 0 1 auto;
+    max-width: 48%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: right;
+}
+
 .fighter-name,
 .spectacle-title,
 .market-title,
@@ -819,6 +837,7 @@ body {
     margin: 0;
     font-size: 1.05rem;
     color: #fff0c8;
+    overflow-wrap: anywhere;
 }
 
 .muted {
@@ -853,6 +872,18 @@ body {
 .badge.gold {
     background: rgba(246, 210, 127, 0.18);
     color: #f9e29a;
+}
+
+.badge.cost-badge {
+    display: block;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    color: #f9e29a;
+    font-size: 0.82rem;
+    letter-spacing: 0;
+    text-transform: none;
+    margin-top: 6px;
 }
 
 .badge.danger {

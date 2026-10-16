@@ -29,7 +29,9 @@ import {
     toggleSelection,
     travelToNextCity,
     upgradeFacility
-    , specializeFighter
+    , specializeFighter,
+    hireStaff,
+    assignStaff
 } from "./game.js";
 
 import { render } from "./ui.js";
@@ -55,6 +57,12 @@ app.addEventListener("click", (event) => {
         render();
     } else if (action === "upgrade") {
         upgradeFacility(id);
+        render();
+    } else if (action === "hire-staff") {
+        hireStaff(button.dataset.role);
+        render();
+    } else if (action === "assign-staff") {
+        assignStaff(button.dataset.staffId, button.dataset.task, button.dataset.fighterId || null);
         render();
     } else if (action === "travel") {
         travelToNextCity();

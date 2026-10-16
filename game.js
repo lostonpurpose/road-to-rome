@@ -17,6 +17,7 @@ import {
     randomBetween,
     randomFrom,
     trainingBudgetCatalog,
+    staffCatalog,
     gladiatorPaths,
     styles,
     viewLabels
@@ -78,6 +79,8 @@ const state = {
     pendingSpectacle: null,
     lastSpectacleResult: null,
     spectacleResultOpen: false,
+    staff: [],
+    staffAssignments: [],
     activeView: "hub",
     facilities: {
         barracks: 1,
@@ -251,6 +254,7 @@ function advanceDay() {
 
     const upgradesCompleted = processFacilityUpgradeQueue();
     const trainingCompleted = processTrainingQueue();
+    const assignmentsCompleted = processStaffAssignments();
     const spectacleReady = markPendingSpectacleReady();
     if (state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day) {
         state.spectacleAttendanceOpen = true;
@@ -260,7 +264,7 @@ function advanceDay() {
         }
     }
 
-    if (!upgradesCompleted && !trainingCompleted && !spectacleReady) {
+    if (!upgradesCompleted && !trainingCompleted && !assignmentsCompleted && !spectacleReady) {
         addLog(`The calendar turns to ${formatCalendarDate(currentCalendarDate())} in ${currentCity().name}.`);
     }
 
@@ -372,6 +376,79 @@ function hireRecruit(fighterId) {
     refreshMarkets(false);
     addLog(`You hire ${recruit.name}, ${recruit.title}.`);
 
+}
+
+function hireStaff(roleKey) {
+    const catalog = staffCatalog[roleKey];
+    if (!catalog) {
+        return false;
+    }
+    if (state.gold < catalog.cost) {
+        addLog(`You cannot afford to hire a ${catalog.role.toLowerCase()}.`);
+        return false;
+    }
+
+    state.gold -= catalog.cost;
+    state.staff.push({ id: nextId("staff"), roleKey, role: catalog.role, name: randomFrom(["Gaius", "Marcia", "Publius", "Naevius", "Sura"]), skill: randomBetween(1, 3), assignmentId: null });
+    addLog(`A ${catalog.role.toLowerCase()} joins your stable.`);
+    return true;
+}
+
+function assignStaff(staffId, taskKey, fighterId = null) {
+    const staffMember = state.staff.find((entry) => entry.id === staffId && !entry.assignmentId);
+    const catalog = staffMember && staffCatalog[staffMember.roleKey];
+    const task = catalog?.tasks.find((entry) => entry.key === taskKey);
+    const fighter = fighterId ? state.roster.find((entry) => entry.id === fighterId && entry.alive && !entry.assignmentId) : null;
+    if (!staffMember || !task || (taskKey === "excursion" && !fighter)) {
+        return false;
+    }
+
+    const assignment = { id: nextId("assignment"), staffId, taskKey, fighterId, completeDay: state.day + Math.max(2, task.days - staffMember.skill + 1) };
+    staffMember.assignmentId = assignment.id;
+    if (fighter) {
+        fighter.assignmentId = assignment.id;
+        fighter.assignmentLabel = `${staffMember.role} training excursion`;
+    }
+    state.staffAssignments.push(assignment);
+    addLog(`${staffMember.role} ${staffMember.name} leaves to ${task.label.toLowerCase()}.`);
+    return true;
+}
+
+function processStaffAssignments() {
+    const completed = state.staffAssignments.filter((assignment) => assignment.completeDay <= state.day);
+    if (!completed.length) {
+        return false;
+    }
+
+    completed.forEach((assignment) => {
+        const staffMember = state.staff.find((entry) => entry.id === assignment.staffId);
+        const fighter = assignment.fighterId && state.roster.find((entry) => entry.id === assignment.fighterId);
+        if (staffMember) {
+            staffMember.assignmentId = null;
+        }
+        if (fighter) {
+            fighter.assignmentId = null;
+            fighter.assignmentLabel = null;
+            if (assignment.taskKey === "excursion") {
+                fighter.strength += 1;
+                fighter.exp += 8;
+                addLog(`${fighter.name} returns from training with a sharper athleticism.`);
+            }
+        }
+        if (assignment.taskKey === "gladiators") {
+            state.recruitMarket = buildRecruitMarket(state.cityIndex);
+            addLog(`${staffMember?.name || "The scout"} finds new gladiators looking for work.`);
+        } else if (assignment.taskKey === "contracts") {
+            state.spectacleBoard = buildFestivalBoard(state.day, state.cityIndex, state.roster);
+            addLog(`${staffMember?.name || "The negotiator"} returns with fresh contracts.`);
+        } else if (assignment.taskKey === "sponsors") {
+            const payment = 12 + (staffMember?.skill || 1) * 6;
+            state.gold += payment;
+            addLog(`${staffMember?.name || "The negotiator"} secures a sponsor gift of ${moneyFormat(payment)}.`);
+        }
+    });
+    state.staffAssignments = state.staffAssignments.filter((assignment) => assignment.completeDay > state.day);
+    return true;
 }
 
 function buyItem(itemId) {
@@ -493,7 +570,7 @@ function travelToNextCity() {
 
 function processTrainingQueue() {
     const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
-    const aliveFighters = state.roster.filter((fighter) => fighter.alive);
+    const aliveFighters = state.roster.filter((fighter) => fighter.alive && !fighter.assignmentId);
 
     if (aliveFighters.length === 0) {
         return false;
@@ -865,6 +942,8 @@ export {
     trainFighter,
     setTrainingBudget,
     hireRecruit,
+    hireStaff,
+    assignStaff,
     buyItem,
     openArmoryShop,
     closeArmoryShop,

@@ -13,6 +13,7 @@ import {
     itemBonusSummary,
     moneyFormat,
     gladiatorPaths,
+    staffCatalog,
     trainingBudgetCatalog,
     viewLabels
 } from "./game-data.js";
@@ -92,6 +93,7 @@ function fighterCard(fighter) {
     const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
     const focusLabel = training.focus === "hp" ? "Constitution" : training.focus === "strength" ? "Athleticism" : "Theatrics";
     const assignedToPendingSpectacle = state.pendingSpectacle?.fighterIds?.includes(fighter.id) || false;
+    const awayOnAssignment = Boolean(fighter.assignmentId);
     const selectedForSpectacle = assignedToPendingSpectacle || state.selectedFighterIds.has(fighter.id);
     const path = fighter.path ? gladiatorPaths[fighter.path] : null;
     const pathChoices = fighter.level >= 3 && !path ? `
@@ -133,8 +135,8 @@ function fighterCard(fighter) {
             </div>
             <button class="equipment-button" data-action="armory-shop-open" data-fighter-id="${fighter.id}">Equipment</button>
             <label class="checkbox-line spectacle-select-line">
-                <input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${selectedForSpectacle ? "checked" : ""} ${assignedToPendingSpectacle ? "disabled" : ""}>
-                ${assignedToPendingSpectacle ? "Assigned to booked spectacle" : "Select for next spectacle"}
+                <input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${selectedForSpectacle ? "checked" : ""} ${assignedToPendingSpectacle || awayOnAssignment ? "disabled" : ""}>
+                ${assignedToPendingSpectacle ? "Assigned to booked spectacle" : awayOnAssignment ? fighter.assignmentLabel : "Select for next spectacle"}
             </label>
             <div class="status-callout pending">
                 <strong>Training ${focusLabel} automatically.</strong>
@@ -142,6 +144,45 @@ function fighterCard(fighter) {
             </div>
             ${pathChoices}
         </article>
+    `;
+}
+
+function staffMarkup() {
+    return `
+        <div class="screen-grid two-up">
+            <section class="panel">
+                <div class="panel-section">
+                    <h3>Hire staff</h3>
+                    <div class="card-grid recruits">
+                        ${Object.entries(staffCatalog).map(([key, entry]) => `<article class="market-card"><div class="card-head"><div><h4 class="market-title">${entry.role}</h4><div class="muted">${entry.tasks.map((task) => task.label).join(" · ")}</div><span class="badge gold cost-badge">${moneyFormat(entry.cost)}</span></div></div><div class="market-actions"><button data-action="hire-staff" data-role="${key}" ${state.gold >= entry.cost ? "" : "disabled"}>Hire</button></div></article>`).join("")}
+                    </div>
+                </div>
+            </section>
+            <section class="panel">
+                <div class="panel-section">
+                    <h3>Assignments</h3>
+                    ${state.staff.length ? state.staff.map((member) => {
+                        const catalog = staffCatalog[member.roleKey];
+                        const assignment = state.staffAssignments.find((entry) => entry.id === member.assignmentId);
+                        const availableFighters = state.roster.filter((fighter) => fighter.alive && !fighter.assignmentId && !fighter.injury);
+                        return `<article class="market-card"><div class="card-head"><div><h4 class="market-title">${member.name}, ${member.role}</h4><div class="muted">Skill ${member.skill}</div></div><span class="badge ${assignment ? "info" : "gold"}">${assignment ? `Returns ${formatCalendarDate(assignment.completeDay)}` : "Available"}</span></div>${assignment ? `<p class="small">Away on assignment.</p>` : `<div class="card-actions">${catalog.tasks.filter((task) => task.key !== "excursion").map((task) => `<button class="secondary" data-action="assign-staff" data-staff-id="${member.id}" data-task="${task.key}">${task.label} (${task.days}d)</button>`).join("")}${catalog.tasks.some((task) => task.key === "excursion") ? availableFighters.map((fighter) => `<button class="secondary" data-action="assign-staff" data-staff-id="${member.id}" data-task="excursion" data-fighter-id="${fighter.id}">Train ${fighter.name}</button>`).join("") : ""}</div>`}</article>`;
+                    }).join("") : '<p class="muted">No staff hired yet.</p>'}
+                </div>
+            </section>
+        </div>
+    `;
+}
+
+function infirmaryMarkup() {
+    const injured = state.roster.filter((fighter) => fighter.alive && fighter.injury);
+    return `
+        <section class="panel">
+            <div class="panel-section">
+                <h3>Infirmary</h3>
+                <p class="small muted">The Medicus Ward treats injuries while the calendar advances. Serious wounds keep gladiators out of assignments and spectacles.</p>
+                ${injured.length ? `<div class="card-grid recruits">${injured.map((fighter) => `<article class="market-card"><div class="card-head"><div><h4 class="market-title">${fighter.name}</h4><div class="muted">${fighter.injury.description}</div></div><span class="badge danger">${fighter.injury.recoveryDays} days</span></div><div class="status-callout pending"><strong>Recovering</strong><span>${fighter.hp}/${fighterTotalMaxHp(fighter)} health · unavailable for excursions</span></div></article>`).join("")}</div>` : '<div class="status-callout"><strong>No gladiators are recovering.</strong><span>The infirmary is quiet.</span></div>'}
+            </div>
+        </section>
     `;
 }
 
@@ -347,12 +388,11 @@ function recruitCard(recruit) {
     const full = state.roster.length >= stableCap();
     return `
         <article class="market-card">
-            <div class="card-head">
+                <div class="card-head">
                 <div>
                     <h4 class="market-title">${recruit.name}</h4>
                     <div class="muted">${recruit.title} · ${recruit.style} · ${recruit.origin}</div>
-                </div>
-                <span class="badge gold">${moneyFormat(recruit.cost)}</span>
+                    <span class="badge gold cost-badge">${moneyFormat(recruit.cost)}</span>
             </div>
             <div class="badges">
                 <span class="badge">Constitution ${recruit.maxHp}</span>
@@ -371,12 +411,12 @@ function itemCard(item) {
     const affordable = state.gold >= item.cost;
     return `
         <article class="market-card">
-            <div class="card-head">
+                <div class="card-head">
                 <div>
                     <h4 class="market-title">${item.name}</h4>
                     <div class="muted">${item.slot} · quality ${item.quality}</div>
+                    <span class="badge gold cost-badge">${moneyFormat(item.cost)}</span>
                 </div>
-                <span class="badge gold">${moneyFormat(item.cost)}</span>
             </div>
             <div class="badges">
                 ${itemBonusSummary(item)
@@ -399,12 +439,12 @@ function facilityCard(key) {
     const queued = state.facilityUpgradeQueue?.key === key;
     return `
         <article class="facility-card">
-            <div class="facility-head">
+                <div class="facility-head">
                 <div>
                     <h4 class="facility-title">${spec.title}</h4>
                     <div class="muted">Level ${facility}</div>
+                    <span class="badge gold cost-badge">${moneyFormat(cost)}</span>
                 </div>
-                <span class="badge gold">${moneyFormat(cost)}</span>
             </div>
             <p class="small">${spec.description}</p>
             ${queued ? `<div class="status-callout pending"><strong>Upgrade queued.</strong><span>It completes on ${formatCalendarDate(state.facilityUpgradeQueue.completeTurn)}.</span></div>` : ""}
@@ -630,6 +670,10 @@ function render() {
                 </section>
             </div>
         `;
+    } else if (state.activeView === "staff") {
+        screenMarkup = staffMarkup();
+    } else if (state.activeView === "infirmary") {
+        screenMarkup = infirmaryMarkup();
     }
 
     const statusSidebarMarkup = `

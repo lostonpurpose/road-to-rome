@@ -191,7 +191,27 @@ const viewLabels = {
     barracks: "Barracks",
     training: "Facilities",
     armory: "Armory",
-    promoters: "Promoters"
+    promoters: "Promoters",
+    staff: "Staff",
+    infirmary: "Infirmary"
+};
+
+const staffCatalog = {
+    negotiator: {
+        role: "Negotiator",
+        cost: 45,
+        tasks: [{ key: "contracts", label: "Find contracts", days: 4 }, { key: "sponsors", label: "Find sponsors", days: 7 }]
+    },
+    scout: {
+        role: "Scout",
+        cost: 40,
+        tasks: [{ key: "gladiators", label: "Scout gladiators", days: 5 }, { key: "contracts", label: "Find contracts", days: 6 }]
+    },
+    coach: {
+        role: "Coach",
+        cost: 55,
+        tasks: [{ key: "excursion", label: "Train a gladiator", days: 5 }]
+    }
 };
 
 function moneyFormat(value) {
@@ -514,6 +534,7 @@ export {
     equipmentCatalog,
     facilityCatalog,
     trainingBudgetCatalog,
+    staffCatalog,
     viewLabels,
     gladiatorPaths,
     nextId,
