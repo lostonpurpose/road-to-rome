@@ -120,24 +120,24 @@ const facilityCatalog = {
 const trainingBudgetCatalog = {
     low: {
         label: "Low",
-        description: "Cheap, slower progress. Fighters improve every 5 days.",
+        description: "Cheap, slower progress. Fighters improve every 6 days.",
         pointsPerDay: 1,
         goldPerFighter: 1,
-        daysPerStat: 5
+        daysPerStat: 6
     },
     med: {
         label: "Med",
-        description: "Balanced pace. Fighters improve every 3 days.",
-        pointsPerDay: 2,
+        description: "Balanced pace. Fighters improve every 4 days.",
+        pointsPerDay: 1,
         goldPerFighter: 2,
-        daysPerStat: 3
+        daysPerStat: 4
     },
     high: {
         label: "High",
         description: "Fast, expensive progress. Fighters improve every 2 days.",
-        pointsPerDay: 3,
+        pointsPerDay: 2,
         goldPerFighter: 4,
-        daysPerStat: 2
+        daysPerStat: 4
     }
 };
 

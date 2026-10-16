@@ -39,7 +39,7 @@ export const festivalDefinitions = [
         minFighters: 1,
         maxFighters: 1,
         toTheDeath: false,
-        request: "wants generic gladiators for the opening rounds",
+        request: "wants affordable gladiators for the opening rounds",
         requestPath: null,
         signUpWindow: 365,
         flavor: "A solemn rite for the dead. Wealthy families still pay to be remembered well."

@@ -215,7 +215,7 @@ function spectacleResultMarkup() {
             return `
                 <div class="status-callout pending">
                     <strong>${spectacle.title} is ready for today.</strong>
-                    <span>Choose gladiators in Promoters, then send them to the show.</span>
+                    <span>${state.pendingSpectacle.sent ? "The gladiators have been sent. Advance to the next day for the result." : "Choose gladiators in Promoters, then send them to the show."}</span>
                 </div>
             `;
         }
@@ -254,6 +254,10 @@ function advanceDay() {
     const spectacleReady = markPendingSpectacleReady();
     if (state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day) {
         state.spectacleAttendanceOpen = true;
+        if (state.pendingSpectacle.sent) {
+            state.spectacleAttendanceOpen = false;
+            resolvePendingSpectacle();
+        }
     }
 
     if (!upgradesCompleted && !trainingCompleted && !spectacleReady) {
@@ -271,8 +275,8 @@ function gainExperience(fighter, amount) {
     fighter.exp += amount;
     let leveled = false;
 
-    while (fighter.exp >= fighter.level * 24) {
-        fighter.exp -= fighter.level * 24;
+    while (fighter.exp >= fighter.level * 40) {
+        fighter.exp -= fighter.level * 40;
         fighter.level += 1;
         fighter.maxHp += 2;
         fighter.strength += 1;
@@ -330,6 +334,13 @@ function setTrainingBudget(key) {
         return;
     }
 
+    const budget = trainingBudgetCatalog[key];
+    const dailyCost = state.roster.filter((fighter) => fighter.alive).length * budget.goldPerFighter;
+    if (state.gold < dailyCost) {
+        addLog(`${budget.label} training requires ${moneyFormat(dailyCost)} per day.`);
+        return;
+    }
+
     state.trainingBudget = key;
     addLog(`Training budget set to ${trainingBudgetCatalog[key].label}.`);
 }
@@ -380,6 +391,23 @@ function buyItem(itemId) {
     state.armoryOwned.push(item);
     addLog(`${item.name} is added to the armory inventory.`);
     refreshMarkets(false);
+}
+
+function equipItem(fighterId, itemId) {
+    const fighter = state.roster.find((entry) => entry.id === fighterId && entry.alive);
+    const itemIndex = state.armoryOwned.findIndex((entry) => entry.id === itemId);
+    if (!fighter || itemIndex === -1) {
+        return;
+    }
+
+    const item = state.armoryOwned[itemIndex];
+    const previousItem = fighter.gear?.[item.slot];
+    fighter.gear = { ...(fighter.gear || {}), [item.slot]: item };
+    state.armoryOwned.splice(itemIndex, 1);
+    if (previousItem) {
+        state.armoryOwned.push(previousItem);
+    }
+    addLog(`${item.name} equipped by ${fighter.name}.`);
 }
 
 function openArmoryShop(fighterId = null) {
@@ -472,7 +500,11 @@ function processTrainingQueue() {
     }
 
     const totalCost = aliveFighters.length * budget.goldPerFighter;
-    state.gold = Math.max(0, state.gold - totalCost);
+    if (state.gold < totalCost) {
+        addLog(`Training is paused. The ${budget.label.toLowerCase()} budget costs ${moneyFormat(totalCost)} per day.`);
+        return false;
+    }
+    state.gold -= totalCost;
 
     let anyProgress = false;
     aliveFighters.forEach((fighter) => {
@@ -500,7 +532,7 @@ function processTrainingQueue() {
             }
 
             training.focus = training.focus === "hp" ? "strength" : training.focus === "strength" ? "defense" : "hp";
-            gainExperience(fighter, 2 + budget.pointsPerDay);
+            gainExperience(fighter, 1);
             anyProgress = true;
         }
 
@@ -559,12 +591,16 @@ function resolveSpectacleOutcome(spectacle, selected) {
     const pathRequestBonus = spectacle.requestPath && selected.some((fighter) => fighter.path === spectacle.requestPath) ? 12 : 0;
     const requestBonus = namedRequestBonus + pathRequestBonus;
 
-    let goldGain = Math.round(spectacle.baseGold + ourPower * 1.2 + rivalPower * 0.9 + requestBonus);
-    if (win) {
-        goldGain = Math.round(goldGain * 1.18);
-    } else {
-        goldGain = Math.round(goldGain * 0.72);
-    }
+    const averageTheatrics = selected.reduce((sum, fighter) => sum + fighterTotalDefense(fighter), 0) / Math.max(1, selected.length);
+    const averageStats = selected.reduce((sum, fighter) => sum + fighterTotalStrength(fighter) + fighterTotalDefense(fighter), 0) / Math.max(1, selected.length);
+    const averageExperience = selected.reduce((sum, fighter) => sum + fighter.exp + fighter.level * 8, 0) / Math.max(1, selected.length);
+    const famePaymentBonus = Math.floor(selected.reduce((sum, fighter) => sum + fighter.fame, 0) / Math.max(1, selected.length) / 4);
+    const bonusChance = clamp(0.2 + averageTheatrics * 0.025 + averageStats * 0.012 + averageExperience * 0.004, 0.2, 0.8);
+    const bonusPossible = win && Math.random() < bonusChance;
+    const performanceBonus = bonusPossible
+        ? Math.round(ourPower * 0.45 + averageTheatrics * 2 + averageExperience * 0.35 + famePaymentBonus + requestBonus)
+        : 0;
+    const goldGain = spectacle.baseGold + performanceBonus;
 
     let fameGain = spectacle.baseFame + Math.floor(rivalPower / 8) + Math.floor(margin / 4);
     if (win) {
@@ -577,7 +613,7 @@ function resolveSpectacleOutcome(spectacle, selected) {
     state.gold += goldGain;
     state.fame += fameGain;
 
-    const xpGain = Math.max(4, Math.round((spectacle.baseFame + rivalPower) / Math.max(1, selected.length)) + (win ? 4 : 2));
+    const xpGain = Math.max(3, Math.round((spectacle.baseFame + rivalPower) / Math.max(1, selected.length) * 0.55) + (win ? 2 : 1));
     const medicusBonus = state.facilities.medicus;
     let casualtyMessage = null;
     const injuries = [];
@@ -630,7 +666,11 @@ function resolveSpectacleOutcome(spectacle, selected) {
             messages.push(`${fighter.name} gains renown (now at ${fighter.renown}).`);
         });
     } else {
-        messages.push(`The crowd enjoys the struggle, but the sponsor pays only ${moneyFormat(goldGain)}.`);
+        messages.push(`The crowd enjoys the struggle, and the sponsor pays the agreed ${moneyFormat(goldGain)}.`);
+    }
+
+    if (bonusPossible) {
+        messages.push(`The crowd's response earns a performance bonus.`);
     }
 
     if (spectacle.requestedName && selected.some((fighter) => fighter.name === spectacle.requestedName)) {
@@ -683,6 +723,11 @@ function resolvePendingSpectacle() {
         return false;
     }
 
+    if (!pending.sent) {
+        addLog(`${spectacle.title} is waiting for the gladiators to be sent.`);
+        return false;
+    }
+
     const outcome = resolveSpectacleOutcome(spectacle, selected);
     state.pendingSpectacle = null;
     state.lastSpectacleResult = {
@@ -726,7 +771,7 @@ function closeSpectacleBooking() {
 }
 
 function openSpectacleAttendance() {
-    if (!state.pendingSpectacle || state.pendingSpectacle.resolveTurn > state.day) {
+    if (!state.pendingSpectacle || state.pendingSpectacle.sent || state.pendingSpectacle.resolveTurn > state.day) {
         return false;
     }
 
@@ -736,6 +781,17 @@ function openSpectacleAttendance() {
 
 function closeSpectacleAttendance() {
     state.spectacleAttendanceOpen = false;
+}
+
+function sendSpectacle() {
+    if (!state.pendingSpectacle || state.pendingSpectacle.resolveTurn > state.day) {
+        return false;
+    }
+
+    state.pendingSpectacle.sent = true;
+    state.spectacleAttendanceOpen = false;
+    addLog("The gladiators enter the arena. Advance to the next day to see the result.");
+    return true;
 }
 
 function queueSpectacle(spectacleId) {
@@ -758,7 +814,8 @@ function queueSpectacle(spectacleId) {
     state.pendingSpectacle = {
         spectacleId,
         resolveTurn: spectacle.eventTurn,
-        fighterIds: [...state.selectedFighterIds]
+        fighterIds: [...state.selectedFighterIds],
+        sent: false
     };
     state.lastSpectacleResult = null;
     closeSpectacleBooking();
@@ -824,7 +881,9 @@ export {
     closeSpectacleBooking,
     openSpectacleAttendance,
     closeSpectacleAttendance,
+    sendSpectacle,
     queueSpectacle,
+    equipItem,
     markPendingSpectacleReady,
     toggleSelection,
     cityIndexToNextLabel

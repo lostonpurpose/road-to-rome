@@ -57,6 +57,7 @@ function gearTags(fighter) {
 
 function trainingBudgetMarkup() {
     const budget = trainingBudgetCatalog[state.trainingBudget] || trainingBudgetCatalog.med;
+    const livingCount = state.roster.filter((fighter) => fighter.alive).length;
     return `
         <div class="status-callout pending">
             <strong>${budget.label} training budget active.</strong>
@@ -64,9 +65,10 @@ function trainingBudgetMarkup() {
         </div>
         <div class="budget-row">
             ${Object.entries(trainingBudgetCatalog).map(([key, entry]) => `
-                <button class="secondary ${state.trainingBudget === key ? "active" : ""}" data-action="set-training-budget" data-budget="${key}">${entry.label}</button>
+                <button class="secondary ${state.trainingBudget === key ? "active" : ""}" data-action="set-training-budget" data-budget="${key}" ${state.gold >= livingCount * entry.goldPerFighter ? "" : "disabled"}>${entry.label}</button>
             `).join("")}
         </div>
+        ${state.gold < livingCount * budget.goldPerFighter ? `<p class="small muted">Training is paused until the stable can afford ${moneyFormat(livingCount * budget.goldPerFighter)} per day.</p>` : ""}
     `;
 }
 
@@ -125,7 +127,7 @@ function fighterCard(fighter) {
                 <div class="stat-box"><span class="label">Athleticism</span><span class="value">${fighterTotalStrength(fighter)}</span></div>
                 <div class="stat-box"><span class="label">Theatrics</span><span class="value">${fighterTotalDefense(fighter)}</span></div>
             </div>
-            <div class="muted small">Power is derived from attributes, level, and gear. Fame is stable reputation; Renown is this gladiator's personal standing.</div>
+            <div class="muted small">Power is derived from attributes, level, and gear.</div>
             <div class="gear-line">
                 ${gearTags(fighter)}
             </div>
@@ -177,7 +179,6 @@ function spectacleBookingMarkup() {
                         <h4>Show details</h4>
                         <div class="spectacle-meta">
                             <span class="badge gold">${moneyFormat(spectacle.baseGold)} payment</span>
-                            <span class="badge">+${spectacle.baseFame} fame</span>
                             <span class="badge">Requests ${requestText}</span>
                             <span class="badge ${spectacle.toTheDeath ? "danger" : "info"}">${spectacle.toTheDeath ? "To the death" : "Standard exhibition"}</span>
                             ${spectacle.toTheDeath ? '<span class="badge danger">High risk · high reward</span>' : ""}
@@ -264,18 +265,35 @@ function ownedItemMarkup(items) {
         .join("");
 }
 
+function ownedItemCards(fighterId) {
+    return state.armoryOwned.length
+        ? state.armoryOwned.map((item) => `
+            <article class="market-card">
+                <div class="card-head">
+                    <div>
+                        <h4 class="market-title">${item.name}</h4>
+                        <div class="muted">${item.slot} · quality ${item.quality}</div>
+                    </div>
+                </div>
+                <div class="badges"><span class="badge">${itemBonusSummary(item).replaceAll(" · ", "</span><span class=\"badge\">")}</span></div>
+                <div class="market-actions"><button data-action="equip-item" data-fighter-id="${fighterId}" data-item-id="${item.id}">Equip</button></div>
+            </article>
+        `).join("")
+        : '<p class="muted">No purchased gear is waiting in the armory.</p>';
+}
+
 function empireMapMarkup() {
     if (!state.empireMapOpen) {
         return "";
     }
 
     const mapPositions = [
-        { left: 28, top: 65 },
-        { left: 31, top: 62 },
-        { left: 35, top: 57 },
-        { left: 40, top: 51 },
-        { left: 47, top: 42 },
-        { left: 54, top: 47 }
+        { left: 17, top: 58 },
+        { left: 19, top: 61 },
+        { left: 25, top: 53 },
+        { left: 34, top: 48 },
+        { left: 42, top: 48 },
+        { left: 45, top: 57 }
     ];
     const nextCity = cityIndexToNextLabel();
     const travelCost = nextCity ? 18 + nextCity.prestige * 12 : 0;
@@ -399,11 +417,13 @@ function facilityCard(key) {
 
 function spectacleCard(spectacle) {
     const booked = state.pendingSpectacle?.spectacleId === spectacle.id;
+    const completed = state.lastSpectacleResult?.title === spectacle.title && state.lastSpectacleResult.day === state.day;
+    const sent = booked && state.pendingSpectacle.sent;
     const ready = booked && state.pendingSpectacle.resolveTurn <= state.day;
     const blocked = Boolean(state.pendingSpectacle) && !booked;
     const eventDate = formatCalendarDate(spectacle.eventTurn);
-    const actionLabel = booked ? (ready ? "Send gladiators" : `Booked for ${eventDate}`) : "Book spectacle";
-    const actionAction = booked ? (ready ? "spectacle-send" : "spectacle-wait") : "spectacle-open";
+    const actionLabel = completed ? "Spectacle complete" : sent ? "Sent; resolve next day" : booked ? (ready ? "Send gladiators" : `Booked for ${eventDate}`) : "Book spectacle";
+    const actionAction = completed || sent ? "spectacle-wait" : booked ? (ready ? "spectacle-send" : "spectacle-wait") : "spectacle-open";
     const typeLabel = spectacle.toTheDeath ? "Sine missione" : "Missio possible";
     
     return `
@@ -418,7 +438,6 @@ function spectacleCard(spectacle) {
             <p class="small">${spectacle.flavor}</p>
             <div class="badges">
                 <span class="badge gold">${moneyFormat(spectacle.baseGold)} base purse</span>
-                <span class="badge">+${spectacle.baseFame} fame</span>
                 <span class="badge">${eventDate}</span>
                 <span class="badge">${spectacle.daysAway === 0 ? "Today" : `${spectacle.daysAway} day${spectacle.daysAway === 1 ? "" : "s"} away`}</span>
                 <span class="badge ${spectacle.toTheDeath ? "danger" : "info"}">${typeLabel}</span>
@@ -434,7 +453,7 @@ function spectacleCard(spectacle) {
                 <span>${booked ? "When the day arrives, you can send gladiators from here." : `Book it now and pick ${spectacle.minFighters === spectacle.maxFighters ? `${spectacle.minFighters} fighter` : `${spectacle.minFighters}-${spectacle.maxFighters} fighters`} in the modal.`}</span>
             </div>
             <div class="market-actions">
-                <button data-action="${actionAction}" data-id="${spectacle.id}" ${!blocked ? "" : "disabled"}>${actionLabel}</button>
+                <button data-action="${actionAction}" data-id="${spectacle.id}" ${!blocked && !completed && !sent ? "" : "disabled"}>${actionLabel}</button>
             </div>
         </article>
     `;
@@ -475,9 +494,9 @@ function render() {
         ? (nextFestival(state.day).daysAway === 0 ? `Spectacle today: ${nextFestival(state.day).definition.title}` : `Next spectacle in ${nextFestival(state.day).daysAway} days`)
         : "No spectacle scheduled.";
     const todaysSpectacle = state.spectacleBoard.find((spectacle) => spectacle.eventTurn === state.day);
-    const spectacleActionMarkup = !state.spectacleAttendanceOpen && state.pendingSpectacle && state.pendingSpectacle.resolveTurn <= state.day
+    const spectacleActionMarkup = !state.spectacleAttendanceOpen && state.pendingSpectacle && !state.pendingSpectacle.sent && state.pendingSpectacle.resolveTurn <= state.day
         ? `<button class="danger-button spectacle-send-button" data-action="spectacle-send" data-id="${state.pendingSpectacle.spectacleId}">Send gladiators</button>`
-        : !state.spectacleAttendanceOpen && todaysSpectacle
+        : !state.spectacleAttendanceOpen && todaysSpectacle && (!state.lastSpectacleResult || state.lastSpectacleResult.day !== state.day)
             ? `<button class="danger-button spectacle-send-button" data-action="spectacle-open" data-id="${todaysSpectacle.id}">Send gladiators</button>`
             : "";
 
@@ -663,7 +682,7 @@ function render() {
                     <div><h3>Armory Shop</h3><p class="small muted">Available gear for the stable inventory.</p></div>
                     <button class="secondary tiny" data-action="armory-shop-close">Close</button>
                 </div>
-                <div class="card-grid items">${state.armoryStock.map(itemCard).join("") || '<p class="muted">The armory has no stock available.</p>'}</div>
+                ${state.armoryShopFighterId ? `<p class="small muted">Choose gear from stable inventory for ${state.roster.find((fighter) => fighter.id === state.armoryShopFighterId)?.name || "this fighter"}.</p><div class="card-grid items">${ownedItemCards(state.armoryShopFighterId)}</div>` : `<div class="card-grid items">${state.armoryStock.map(itemCard).join("") || '<p class="muted">The armory has no stock available.</p>'}</div>`}
             </div>
         </div>
     ` : "";
@@ -675,7 +694,7 @@ function render() {
                 <div class="hero-banner-inner">
                     <div class="hero-copy">
                         <h1>${state.lanistaName}</h1>
-                        <p class="subtitle">You are the lanista of a gladiator stable in a backwater Spanish city. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
+                        <p class="subtitle">You are the lanista of a gladiator stable in a backwater city in Hispania. Book spectacles for promoters, manage your roster, equip your fighters, and climb from provincial bloodsport to the arena of Rome.</p>
                         <div class="hero-bottom-row">
                             <div class="hero-options">
                                 <div class="view-tabs">${navigation}</div>

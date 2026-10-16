@@ -2,14 +2,15 @@ import {
     addLog,
     advanceDay,
     buyItem,
+    equipItem,
     currentCity,
     hireRecruit,
-    resolvePendingSpectacle,
     queueSpectacle,
     openSpectacleBooking,
     closeSpectacleBooking,
     openSpectacleAttendance,
     closeSpectacleAttendance,
+    sendSpectacle,
     openArmoryShop,
     closeArmoryShop,
     closeSpectacleResult,
@@ -49,6 +50,9 @@ app.addEventListener("click", (event) => {
     } else if (action === "buy-item") {
         buyItem(id);
         render();
+    } else if (action === "equip-item") {
+        equipItem(button.dataset.fighterId, button.dataset.itemId);
+        render();
     } else if (action === "upgrade") {
         upgradeFacility(id);
         render();
@@ -70,7 +74,7 @@ app.addEventListener("click", (event) => {
         render();
     } else if (action === "spectacle-attendance-confirm") {
         closeSpectacleAttendance();
-        resolvePendingSpectacle();
+        sendSpectacle();
         render();
     } else if (action === "spectacle-attendance-cancel") {
         closeSpectacleAttendance();
