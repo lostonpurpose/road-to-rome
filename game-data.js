@@ -512,7 +512,8 @@ function buildSpectacleBoard(cityIndex, roster) {
 
 function buildStartRoster() {
     return [
-        makeFighter({
+        {
+            ...makeFighter({
             name: "Asterius",
             style: "thraex",
             title: "provincial novice",
@@ -524,7 +525,12 @@ function buildStartRoster() {
             defense: 2,
             origin: "Emerita Augusta",
             cost: 0
-        })
+            }),
+            gear: {
+                weapon: makeItem("weapon", "Bronze gladius", { strength: 1, defense: 0, hp: 0, fame: 0 }, 22, 1),
+                armor: makeItem("armor", "Padded tunic", { strength: 0, defense: 1, hp: 0, fame: 0 }, 18, 1)
+            }
+        }
     ];
 }
 

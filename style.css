@@ -327,8 +327,7 @@ body {
 }
 
 .equipment-button {
-    width: 100%;
-    min-height: 44px;
+    min-height: 36px;
     margin-top: 12px;
     font-size: 0.95rem;
     letter-spacing: 0.08em;
@@ -337,6 +336,17 @@ body {
 
 .fighter-summary-badges {
     margin-top: 10px;
+}
+
+.roster-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.roster-selector-button {
+    min-height: 38px;
 }
 
 .fighter-path-panel {
@@ -993,8 +1003,7 @@ button.ghost {
 
 .gear-line {
     margin-top: 8px;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
     gap: 6px;
 }
 
@@ -1002,6 +1011,16 @@ button.ghost {
 .log-item {
     font-size: 0.9rem;
     color: #f5e8c6;
+}
+
+.gear-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gear-item strong {
+    min-width: 58px;
 }
 
 .gear-item strong,

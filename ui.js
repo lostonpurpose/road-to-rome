@@ -45,15 +45,19 @@ function escapeAttribute(value) {
 
 function gearTags(fighter) {
     const tags = [];
-    const slots = ["weapon", "armor", "trinket"];
+    const slots = [
+        ["weapon", "Weapon"],
+        ["armor", "Armor"],
+        ["trinket", "Trinket"]
+    ];
 
-    slots.forEach((slot) => {
+    slots.forEach(([slot, label]) => {
         const item = fighter.gear?.[slot];
         if (item) {
-            tags.push(`<span class="badge">${item.name}</span>`);
+            tags.push(`<span class="gear-item"><strong>${label}</strong><span class="badge">${item.name}</span></span>`);
         }
     });
-    return tags.join("");
+    return tags.length ? tags.join("") : `<span class="muted small">No equipment assigned.</span>`;
 }
 
 function trainingBudgetMarkup() {
@@ -133,7 +137,7 @@ function fighterCard(fighter) {
             <div class="gear-line">
                 ${gearTags(fighter)}
             </div>
-            <button class="equipment-button" data-action="armory-shop-open" data-fighter-id="${fighter.id}">Equipment</button>
+            <button class="secondary equipment-button" data-action="armory-shop-open" data-fighter-id="${fighter.id}">Equipment</button>
             <label class="checkbox-line spectacle-select-line">
                 <input type="checkbox" class="spectacle-fighter-select" data-fighter-id="${fighter.id}" ${selectedForSpectacle ? "checked" : ""} ${assignedToPendingSpectacle || awayOnAssignment ? "disabled" : ""}>
                 ${assignedToPendingSpectacle ? "Assigned to booked spectacle" : awayOnAssignment ? fighter.assignmentLabel : "Select for next spectacle"}
@@ -572,13 +576,18 @@ function render() {
             </div>
         `;
     } else if (state.activeView === "barracks") {
+        const rosteredFighters = state.roster.filter((fighter) => fighter.alive);
+        const selectedFighter = rosteredFighters.find((fighter) => fighter.id === state.selectedFighterId) || rosteredFighters[0];
         screenMarkup = `
             <div class="screen-grid two-up">
                 <section class="panel">
                     <div class="panel-section">
                         <h3>Roster</h3>
+                        <div class="roster-selector" role="tablist" aria-label="Gladiator roster">
+                            ${rosteredFighters.map((fighter) => `<button class="secondary roster-selector-button ${selectedFighter?.id === fighter.id ? "active" : ""}" data-action="select-fighter" data-id="${fighter.id}" role="tab" aria-selected="${selectedFighter?.id === fighter.id}">${fighter.name}</button>`).join("")}
+                        </div>
                         <div class="roster-list">
-                            ${state.roster.map(fighterCard).join("")}
+                            ${selectedFighter ? fighterCard(selectedFighter) : '<p class="muted">No active gladiators.</p>'}
                         </div>
                     </div>
                 </section>

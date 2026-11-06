@@ -82,6 +82,7 @@ const state = {
     staff: [],
     staffAssignments: [],
     activeView: "hub",
+    selectedFighterId: null,
     facilities: {
         barracks: 1,
         trainingYard: 0,
@@ -146,6 +147,12 @@ function setActiveView(view) {
 
     state.activeView = view;
 
+}
+
+function selectFighter(fighterId) {
+    if (state.roster.some((fighter) => fighter.id === fighterId && fighter.alive)) {
+        state.selectedFighterId = fighterId;
+    }
 }
 
 function setLanistaName(name) {
@@ -944,6 +951,7 @@ export {
     hireRecruit,
     hireStaff,
     assignStaff,
+    selectFighter,
     buyItem,
     openArmoryShop,
     closeArmoryShop,
