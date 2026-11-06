@@ -576,12 +576,6 @@ function render() {
             <div class="screen-grid two-up">
                 <section class="panel">
                     <div class="panel-section">
-                        <h3>Training Budget</h3>
-                        <div class="panel-section compact">
-                            ${trainingBudgetMarkup()}
-                        </div>
-                    </div>
-                    <div class="panel-section">
                         <h3>Roster</h3>
                         <div class="roster-list">
                             ${state.roster.map(fighterCard).join("")}
@@ -589,6 +583,12 @@ function render() {
                     </div>
                 </section>
 
+                <section class="panel">
+                    <div class="panel-section">
+                        <h3>Training Budget</h3>
+                        ${trainingBudgetMarkup()}
+                    </div>
+                </section>
             </div>
         `;
     } else if (state.activeView === "recruits") {
