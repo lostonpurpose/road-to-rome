@@ -550,6 +550,7 @@ function render() {
                         <p>Use the tabs to focus on one part of the stable at a time. Book a spectacle, make your changes, then press Next Day to resolve it.</p>
                         <div class="card-actions">
                             <button class="secondary" data-action="view" data-view="barracks">Open Barracks</button>
+                            <button class="secondary" data-action="view" data-view="recruits">Open Recruit Market</button>
                             <button class="secondary" data-action="view" data-view="training">Open Facilities</button>
                             <button class="secondary" data-action="view" data-view="promoters">Open Promoters</button>
                         </div>
@@ -588,15 +589,18 @@ function render() {
                     </div>
                 </section>
 
-                <section class="panel">
-                    <div class="panel-section">
-                        <h3>Recruit Market</h3>
-                        <div class="card-grid recruits">
-                            ${state.recruitMarket.map(recruitCard).join("")}
-                        </div>
-                    </div>
-                </section>
             </div>
+        `;
+    } else if (state.activeView === "recruits") {
+        screenMarkup = `
+            <section class="panel">
+                <div class="panel-section">
+                    <h3>Recruit Market</h3>
+                    <div class="card-grid recruits">
+                        ${state.recruitMarket.map(recruitCard).join("")}
+                    </div>
+                </div>
+            </section>
         `;
     } else if (state.activeView === "training") {
         screenMarkup = `

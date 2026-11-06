@@ -189,6 +189,7 @@ const gladiatorPaths = {
 const viewLabels = {
     hub: "Hub",
     barracks: "Barracks",
+    recruits: "Recruit Market",
     training: "Facilities",
     armory: "Armory",
     promoters: "Promoters",
